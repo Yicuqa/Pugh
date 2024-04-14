@@ -38,6 +38,10 @@ class MyApp:
         # Open the application at the criteria view
         self.show_input_criteria_frame()
 
+    def clear_content_frame(self):
+        for widget in self.content_frame.winfo_children():
+            widget.destroy()
+
     def create_menu(self):
         menubar = tk.Menu(self.root)
         self.root.config(menu=menubar)
@@ -105,9 +109,14 @@ class MyApp:
         self.show_input_criteria_frame()
 
     def delete_criteria_row(self):
-        if len(self.criteria_data) > 1:
-            self.criteria_data.pop()
-        self.show_input_criteria_frame()
+        try:
+            if len(self.criteria_data) > 1:
+                self.criteria_data.pop()
+                self.show_input_criteria_frame()
+            else:
+                messagebox.showinfo("Error", "At least one criteria must be present.")
+        except Exception as e:
+            messagebox.showerror("Error", f"An error occurred: {e}")
 
 
     def show_input_solution_frame(self):
@@ -156,22 +165,30 @@ class MyApp:
         self.show_input_solution_frame()
 
     def delete_solution_row(self):
-        if len(self.solution_data) > 1:
-            self.solution_data.pop()
-        self.show_input_solution_frame()
-
-
+        try:
+            if len(self.solution_data) > 1:
+                self.solution_data.pop()
+                self.show_input_solution_frame()
+            else:
+                messagebox.showinfo("Error", "At least one solution must be present.")
+        except Exception as e:
+            messagebox.showerror("Error", f"An error occurred: {e}")
 
     def show_input_calculation_frame(self):
-        self.create_content_frame()
         self.update_data_from_entries()
+        self.clear_content_frame()
+        
+        # Ensure that there are criteria and solutions to display
+        if not self.criteria_data or not self.solution_data:
+            messagebox.showinfo("Info", "No data to display in calculation view.")
+            return
 
-        # Grid structure for criteria vs. solutions
+        # Creating the solution headers and the criteria rows with checkbuttons
         for i, criterion in enumerate(self.criteria_data):
-            tk.Label(self.content_frame, text=criterion, borderwidth=1, relief="solid").grid(row=i+1, column=0, sticky="nsew")
+            tk.Label(self.content_frame, text=criterion['name'], borderwidth=1, relief="solid").grid(row=i+1, column=0, sticky="nsew")
 
         for j, solution in enumerate(self.solution_data):
-            tk.Label(self.content_frame, text=solution, borderwidth=1, relief="solid").grid(row=0, column=j+1, sticky="nsew")
+            tk.Label(self.content_frame, text=solution['name'], borderwidth=1, relief="solid").grid(row=0, column=j+1, sticky="nsew")
             for i in range(len(self.criteria_data)):
                 checkbutton = CycleCheckbutton(self.content_frame)
                 checkbutton.grid(row=i+1, column=j+1, sticky="nsew")
@@ -183,14 +200,29 @@ class MyApp:
             self.content_frame.grid_columnconfigure(j, weight=1)
 
     def update_data_from_entries(self):
-        """Update criteria and solution lists based on entries content before clearing the content frame."""
-        self.criteria_data = [entry.get() for entry in self.criteria_entries]
-        self.solution_data = [entry.get() for entry in self.solution_entries]
+        # Update criteria and solution lists based on entries content before clearing the content frame.
+        updated_criteria_data = []
+        updated_solution_data = []
 
+        # Make sure entries are still there (not destroyed)
+        for entry in self.criteria_entries:
+            try:
+                updated_criteria_data.append({'name': entry.get(), 'importance': 'Low'})
+            except:
+                pass  # Skip if entry has been destroyed
 
-    def clear_content_frame(self):
-        for widget in self.content_frame.winfo_children():
-            widget.destroy()
+        for entry in self.solution_entries:
+            try:
+                updated_solution_data.append({'name': entry.get(), 'details': ''})
+            except:
+                pass  # Skip if entry has been destroyed
+
+        # Only update the class attributes if we successfully got data
+        if updated_criteria_data:
+            self.criteria_data = updated_criteria_data
+        if updated_solution_data:
+            self.solution_data = updated_solution_data
+
 
 if __name__ == "__main__":
     root = tk.Tk()
