@@ -108,23 +108,66 @@ class MyApp:
         data = [(name, score) for name, score in scores.items()]
         self.export_to_pdf(data)
 
-
-    def export_state_to_csv(self):
-        # Let user choose filename and directory
+    def export_state(self):
+        # Options for save file dialog to allow selecting file type
+        file_types = [
+            ("Excel files", "*.xlsx"),
+            ("CSV files", "*.csv"),
+            ("PDF files", "*.pdf"),
+            ("All files", "*.*")
+        ]
         filename = filedialog.asksaveasfilename(
-            defaultextension=".csv",
-            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+            defaultextension=".xlsx",  # Default file extension
+            filetypes=file_types,     # List of tuples specifying allowed file types
             title="Save as"
         )
-        if not filename:  # If no file name is given, return without doing anything
-            return
-
-        # Collect the data to be exported
-        headers, data = self.collect_export_state_data()
         
+        if not filename:
+            return  # User cancelled the dialog
+
+        if filename.endswith('.xlsx'):
+            self.export_state_to_xlsx(filename)
+        elif filename.endswith('.csv'):
+            self.export_state_to_csv(filename)
+        elif filename.endswith('.pdf'):
+            self.export_state_to_pdf(filename)
+        else:
+            messagebox.showerror("Export Error", "Unsupported file format selected.")
+
+    def export_results(self):
+        scores = self.calculate_scores()
+        data = [(name, score) for name, score in scores.items()]
+
+        # Options for save file dialog to allow selecting file type
+        file_types = [
+            ("Excel files", "*.xlsx"),
+            ("CSV files", "*.csv"),
+            ("PDF files", "*.pdf"),
+            ("All files", "*.*")
+        ]
+        filename = filedialog.asksaveasfilename(
+            defaultextension=".xlsx",  # Default file extension
+            filetypes=file_types,      # List of tuples specifying allowed file types
+            title="Save results as"
+        )
+
+        if not filename:
+            return  # User cancelled the dialog
+
+        if filename.endswith('.xlsx'):
+            self.export_to_xlsx(scores, filename)
+        elif filename.endswith('.csv'):
+            self.export_to_csv(data, filename)
+        elif filename.endswith('.pdf'):
+            self.export_to_pdf(data, filename)
+        else:
+            messagebox.showerror("Export Error", "Unsupported file format selected.")
+
+    def export_state_to_csv(self, filename):
+        headers, data = self.collect_export_state_data()
         try:
             with open(filename, 'w', newline='', encoding='utf-8') as file:
-                writer = csv.writer(file, delimiter=',')  # You can offer delimiter as a parameter
+                writer = csv.writer(file)
                 writer.writerow(headers)
                 for row in data:
                     writer.writerow(row)
@@ -132,19 +175,8 @@ class MyApp:
         except Exception as e:
             messagebox.showerror("Export Failed", f"Failed to export data: {e}")
 
-    def export_state_to_xlsx(self):
-        # Let user choose filename and directory
-        filename = filedialog.asksaveasfilename(
-            defaultextension=".xlsx",
-            filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
-            title="Save as"
-        )
-        if not filename:  # If no file name is given, return without doing anything
-            return
-
-        # Collect the data to be exported
+    def export_state_to_xlsx(self, filename):
         headers, data = self.collect_export_state_data()
-        
         try:
             wb = Workbook()
             ws = wb.active
@@ -156,49 +188,30 @@ class MyApp:
         except Exception as e:
             messagebox.showerror("Export Failed", f"Failed to export data: {e}")
 
-
-    def export_state_to_pdf(self, filename="ExportedStateData.pdf"):
-        # Let user choose filename and directory
-        filename = filedialog.asksaveasfilename(
-            defaultextension=".pdf",
-            filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")],
-            title="Save as"
-        )
-        if not filename:  # If no file name is given, return without doing anything
-            return
-
-        # Collect the data to be exported
+    def export_state_to_pdf(self, filename):
         headers, data = self.collect_export_state_data()
-        
         try:
             pdf = PDF(title='Data State')
             pdf.add_page()
-            column_width = 190 / len(headers)  # Adjust column width based on the number of columns
+            column_width = 190 / len(headers)
             pdf.set_font('Arial', 'B', 12)
             for header in headers:
                 pdf.cell(column_width, 10, header, border=1, ln=0, align='C')
             pdf.ln(10)
-
+            
             pdf.set_font('Arial', '', 12)
             for row in data:
                 for item in row:
                     pdf.cell(column_width, 10, str(item), border=1, ln=0, align='C')
                 pdf.ln(10)
-
+            
             pdf.output(filename)
-            messagebox.showinfo("Export Success", "Data exported successfully to PDF.")
+            messagebox.showinfo("Export Success", f"Data exported successfully to PDF at {filename}.")
         except Exception as e:
             messagebox.showerror("Export Failed", f"Failed to export data: {e}")
 
-    def export_to_csv(self, data):
-        filename = filedialog.asksaveasfilename(
-            defaultextension=".csv",
-            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
-            title="Save as"
-        )
-        if not filename:
-            return  # Exit if no file was selected
 
+    def export_to_csv(self, data, filename):
         try:
             with open(filename, 'w', newline='') as file:
                 writer = csv.writer(file)
@@ -209,15 +222,7 @@ class MyApp:
         except Exception as e:
             messagebox.showerror("Export Failed", f"Failed to export data: {e}")
 
-    def export_to_xlsx(self, scores):
-        filename = filedialog.asksaveasfilename(
-            defaultextension=".xlsx",
-            filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
-            title="Save as"
-        )
-        if not filename:
-            return
-
+    def export_to_xlsx(self, scores, filename):
         try:
             wb = Workbook()
             ws = wb.active
@@ -237,15 +242,7 @@ class MyApp:
         prepared_data = [(name, int(score)) for name, score in scores.items()]
         return prepared_data
 
-    def export_to_pdf(self, data):
-        filename = filedialog.asksaveasfilename(
-            defaultextension=".pdf",
-            filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")],
-            title="Save as"
-        )
-        if not filename:
-            return
-
+    def export_to_pdf(self, data, filename):
         try:
             pdf = PDF(title='Results')
             pdf.add_page()
@@ -267,25 +264,46 @@ class MyApp:
         menubar = tk.Menu(self.root)
         self.root.config(menu=menubar)
         fileMenu = tk.Menu(menubar, tearoff=0)
-        fileMenu.add_command(label="Open New", command=lambda: messagebox.showinfo("Popup", "Not supported yet!"))
+        fileMenu.add_command(label="Open New", command=self.prompt_save_before_reset)
+        fileMenu.add_command(label="Export State", command=self.export_state)
         fileMenu.add_separator()
         fileMenu.add_command(label="Help", command=lambda: messagebox.showinfo("Popup", "Not supported yet!"))
         fileMenu.add_separator()
         fileMenu.add_command(label="Close", command=self.root.quit)
         menubar.add_cascade(label="File", menu=fileMenu)
-        
-        exportMenu = tk.Menu(menubar, tearoff=0)
-        exportMenu.add_command(label="Export State to CSV", command=lambda: self.export_state_to_csv())
-        exportMenu.add_command(label="Export State to XLSX", command=lambda: self.export_state_to_xlsx())
-        exportMenu.add_command(label="Export State to PDF", command=lambda: self.export_state_to_pdf())
-        menubar.add_cascade(label="Export", menu=exportMenu)
-
 
         viewMenu = tk.Menu(menubar, tearoff=0)
         viewMenu.add_command(label="Input Criteria", command=self.show_input_criteria_frame)
         viewMenu.add_command(label="Input Solution", command=self.show_input_solution_frame)
         viewMenu.add_command(label="View Calculation", command=self.show_input_calculation_frame)
         menubar.add_cascade(label="View", menu=viewMenu)
+
+    def prompt_save_before_reset(self):
+        response = messagebox.askyesnocancel("Save Current State", "Do you want to save the current state before opening a new session?")
+        if response:  # Yes, save the state
+            self.export_state()
+            self.reset_application()  # Reset application after saving
+        elif response is False:  # No, do not save
+            self.reset_application()
+
+    def reset_application(self):
+        # Clear existing data
+        self.criteria_data.clear()
+        self.solution_data.clear()
+        self.clear_content_frame()  # Clears the content frame
+
+        # Populate with initial default data
+        self.criteria_data = [
+            {'name': 'Criteria 1', 'details': '', 'importance': 'Low'},
+            {'name': 'Criteria 2', 'details': '', 'importance': 'Low'}
+        ]
+        self.solution_data = [
+            {'name': 'Solution 1', 'details': ''},
+            {'name': 'Solution 2', 'details': ''}
+        ]
+
+        # Re-initialize GUI components with default data
+        self.show_input_criteria_frame()  # This method should re-render the criteria input section
 
     def perform_csv_export(self, scores):
         # Prepare data for export
@@ -527,16 +545,8 @@ class MyApp:
         buttons_frame.pack(pady=20)
 
         # Button for exporting to CSV
-        export_csv_button = ttk.Button(buttons_frame, text="Export to CSV", command=self.export_current_results_to_csv)
-        export_csv_button.pack(side='left', padx=10)
-
-        # Button for exporting to XLSX
-        export_xlsx_button = ttk.Button(buttons_frame, text="Export to XLSX", command=self.export_current_results_to_xlsx)
-        export_xlsx_button.pack(side='left', padx=10)
-
-        # Button for exporting to PDF
-        export_pdf_button = ttk.Button(buttons_frame, text="Export to PDF", command=self.export_current_results_to_pdf)
-        export_pdf_button.pack(side='left', padx=10)
+        export_button = ttk.Button(buttons_frame, text="Export Results", command=self.export_results)
+        export_button.pack(side='left', padx=10)
 
 if __name__ == "__main__":
     root = tk.Tk()
