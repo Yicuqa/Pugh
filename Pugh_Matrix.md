@@ -70,7 +70,7 @@ class MyApp:
         with open(filename, 'w', newline='') as file:
             writer = csv.writer(file)
             # Assuming data is a list of tuples (name, score)
-            writer.writerow(['Solution Name', 'Score'])
+            writer.writerow(['Solution', 'Score'])
             for name, score in data:
                 writer.writerow([name, score])
         messagebox.showinfo("Export Success", "Results exported successfully to CSV.")
@@ -98,7 +98,7 @@ class MyApp:
         pdf = PDF()
         pdf.add_page()
         pdf.set_font('Arial', '', 12)
-        pdf.cell(40, 10, 'Solution Name', 0, 0)  # Adjusted cell width
+        pdf.cell(40, 10, 'Solution', 0, 0)  # Adjusted cell width
         pdf.cell(0, 10, 'Score', 0, 1, 'R')  # 'R' aligns right
 
         # Ensure data is in the correct format and sort it

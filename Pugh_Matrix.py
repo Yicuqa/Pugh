@@ -70,7 +70,7 @@ class MyApp:
         with open(filename, 'w', newline='') as file:
             writer = csv.writer(file)
             # Assuming data is a list of tuples (name, score)
-            writer.writerow(['Solution Name', 'Score'])
+            writer.writerow(['Solution', 'Score'])
             for name, score in data:
                 writer.writerow([name, score])
         messagebox.showinfo("Export Success", "Results exported successfully to CSV.")
@@ -98,7 +98,7 @@ class MyApp:
         pdf = PDF()
         pdf.add_page()
         pdf.set_font('Arial', '', 12)
-        pdf.cell(40, 10, 'Solution Name', 0, 0)  # Adjusted cell width
+        pdf.cell(40, 10, 'Solution', 0, 0)  # Adjusted cell width
         pdf.cell(0, 10, 'Score', 0, 1, 'R')  # 'R' aligns right
 
         # Ensure data is in the correct format and sort it
@@ -123,11 +123,11 @@ class MyApp:
         fileMenu.add_command(label="Close", command=self.root.quit)
         menubar.add_cascade(label="File", menu=fileMenu)
         
-        exportMenu = tk.Menu(menubar, tearoff=0)
-        exportMenu.add_command(label="Export to CSV", command=self.perform_csv_export)
-        exportMenu.add_command(label="Export to XLSX", command=self.perform_xlsx_export)
-        exportMenu.add_command(label="Export to PDF", command=self.perform_pdf_export)
-        menubar.add_cascade(label="Export", menu=exportMenu)
+#        exportMenu = tk.Menu(menubar, tearoff=0)
+#        exportMenu.add_command(label="Export to CSV", command=self.perform_csv_export)
+#        exportMenu.add_command(label="Export to XLSX", command=self.perform_xlsx_export)
+#        exportMenu.add_command(label="Export to PDF", command=self.perform_pdf_export)
+#        menubar.add_cascade(label="Export", menu=exportMenu)
 
         viewMenu = tk.Menu(menubar, tearoff=0)
         viewMenu.add_command(label="Input Criteria", command=self.show_input_criteria_frame)
@@ -135,17 +135,20 @@ class MyApp:
         viewMenu.add_command(label="View Calculation", command=self.show_input_calculation_frame)
         menubar.add_cascade(label="View", menu=viewMenu)
 
-    def perform_csv_export(self):
-        scores = self.get_scores()
-        self.export_to_csv(scores)
+    def perform_csv_export(self, scores):
+        # Prepare data for export
+        data = [(name, score) for name, score in scores.items()]
+        self.export_to_csv(data, filename="Results.csv")
 
-    def perform_xlsx_export(self):
-        scores = self.calculate_scores()
-        self.export_to_xlsx(scores)
+    def perform_xlsx_export(self, scores):
+        # Prepare data for export
+        self.export_to_xlsx(scores, filename="Results.xlsx")
 
-    def perform_pdf_export(self):
-        data = self.prepare_data_for_export()
+    def perform_pdf_export(self, scores):
+        # Prepare data for export
+        data = [(name, score) for name, score in scores.items()]
         self.export_to_pdf(data, filename="Results.pdf")
+
 
     def get_scores(self):
         # Logic to collect scores from your application's data
@@ -170,25 +173,6 @@ class MyApp:
                     scores[solution['name']] += checkbox.get_score() * importance_score
         
         return scores
-
-
-    def display_results(self, scores):
-        # Create a new Toplevel window to display results
-        result_window = tk.Toplevel(self.root)
-        result_window.title("Results")
-        result_window.geometry("400x400")
-        
-        # Sort solutions by score descending, and by name alphabetically if scores are the same
-        sorted_solutions = sorted(scores.items(), key=lambda item: (-item[1], item[0]))
-        
-        # Display each solution and its score
-        for i, (solution_name, score) in enumerate(sorted_solutions):
-            result_label = tk.Label(result_window, text=f"{solution_name}: {score}", font=("Arial", 14))
-            result_label.pack(pady=(20, 0) if i == 0 else (10, 0))
-
-        # Add a close button to the window
-        close_button = tk.Button(result_window, text="Close", command=result_window.destroy)
-        close_button.pack(pady=20)
 
     def calculate_and_display(self):
         scores = self.calculate_scores()
@@ -386,9 +370,21 @@ class MyApp:
             result_label = tk.Label(result_window, text=f"{solution_name}: {score}", font=("Arial", 14))
             result_label.pack(pady=(20, 0) if i == 0 else (10, 0))
 
-        # Add a close button to the window
-        close_button = tk.Button(result_window, text="Close", command=result_window.destroy)
-        close_button.pack(pady=20)
+        # Buttons frame
+        buttons_frame = tk.Frame(result_window)
+        buttons_frame.pack(pady=20)
+
+        # Button for exporting to CSV
+        export_csv_button = ttk.Button(buttons_frame, text="Export to CSV", command=lambda: self.perform_csv_export(scores))
+        export_csv_button.pack(side='left', padx=10)
+
+        # Button for exporting to XLSX
+        export_xlsx_button = ttk.Button(buttons_frame, text="Export to XLSX", command=lambda: self.perform_xlsx_export(scores))
+        export_xlsx_button.pack(side='left', padx=10)
+
+        # Button for exporting to PDF
+        export_pdf_button = ttk.Button(buttons_frame, text="Export to PDF", command=lambda: self.perform_pdf_export(scores))
+        export_pdf_button.pack(side='left', padx=10)
 
 if __name__ == "__main__":
     root = tk.Tk()
