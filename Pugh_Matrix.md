@@ -1,9 +1,18 @@
 import csv
 import tkinter as tk
 from tkinter import messagebox, ttk
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
 from openpyxl import Workbook
+from fpdf import FPDF
+
+class PDF(FPDF):
+    def header(self):
+        self.set_font('Arial', 'B', 12)
+        self.cell(0, 10, 'Solution Results', 0, 1, 'C')
+
+    def footer(self):
+        self.set_y(-15)
+        self.set_font('Arial', 'I', 8)
+        self.cell(0, 10, f'Page {self.page_no()}', 0, 0, 'C')
 
 class CycleCheckbutton(tk.Label):
     def __init__(self, master=None, state_change_callback=None, **kw):
@@ -57,7 +66,7 @@ class MyApp:
 
         self.show_input_criteria_frame()
 
-    def export_to_csv(self, data, filename="results.csv"):
+    def export_to_csv(self, data, filename="Results.csv"):
         with open(filename, 'w', newline='') as file:
             writer = csv.writer(file)
             # Assuming data is a list of tuples (name, score)
@@ -65,25 +74,6 @@ class MyApp:
             for name, score in data:
                 writer.writerow([name, score])
         messagebox.showinfo("Export Success", "Results exported successfully to CSV.")
-
-    def export_to_xlsx(self, scores, filename="Results.xlsx"):
-        # Create a workbook and select the active worksheet
-        wb = Workbook()
-        ws = wb.active
-        
-        # Add headers
-        ws.append(["Solution", "Score"])
-        
-        # Sort scores by descending order and alphabetically by name if scores are the same
-        sorted_scores = sorted(scores.items(), key=lambda item: (-item[1], item[0]))
-        
-        # Add data rows to the worksheet
-        for solution_name, score in sorted_scores:
-            ws.append([solution_name, score])
-        
-        # Save the workbook to a file
-        wb.save(filename)
-        print(f"Exported results to {filename}")
 
     def export_to_xlsx(self, scores, filename="Results.xlsx"):
         print("Exporting to XLSX", scores)  # Debug print
@@ -96,6 +86,31 @@ class MyApp:
         wb.save(filename)
         print(f"Exported results to {filename}")  # Confirm file save
         messagebox.showinfo("Export Success", f"Results exported successfully to {filename}.")
+
+    def prepare_data_for_export(self):
+        # Calculate scores
+        scores = self.calculate_scores()
+        # Convert all scores to integers if they aren't already
+        prepared_data = [(name, int(score)) for name, score in scores.items()]
+        return prepared_data
+
+    def export_to_pdf(self, data, filename="Results.pdf"):
+        pdf = PDF()
+        pdf.add_page()
+        pdf.set_font('Arial', '', 12)
+        pdf.cell(40, 10, 'Solution Name', 0, 0)  # Adjusted cell width
+        pdf.cell(0, 10, 'Score', 0, 1, 'R')  # 'R' aligns right
+
+        # Ensure data is in the correct format and sort it
+        sorted_data = sorted(data, key=lambda x: (-x[1], x[0]))
+
+        # Adding sorted data to the PDF
+        for name, score in sorted_data:
+            pdf.cell(40, 10, name, 0, 0)  # Adjusted cell width for name
+            pdf.cell(0, 10, str(score), 0, 1, 'R')
+
+        pdf.output(filename)
+        messagebox.showinfo("Export Success", f"Results exported successfully to PDF as {filename}")
 
     def create_menu(self):
         menubar = tk.Menu(self.root)
@@ -128,10 +143,9 @@ class MyApp:
         scores = self.calculate_scores()
         self.export_to_xlsx(scores)
 
-
     def perform_pdf_export(self):
-        scores = self.get_scores()
-        self.export_to_pdf(scores)
+        data = self.prepare_data_for_export()
+        self.export_to_pdf(data, filename="Results.pdf")
 
     def get_scores(self):
         # Logic to collect scores from your application's data
@@ -356,7 +370,8 @@ class MyApp:
                 checkbox = self.content_frame.grid_slaves(row=i + 1, column=j + 1)[0]
                 if isinstance(checkbox, CycleCheckbutton):
                     # Multiply the checkbox score by the importance score and add to the solution's total
-                    scores[solution['name']] += checkbox.get_score() * importance_score
+                    added_score = int(checkbox.get_score()) if isinstance(checkbox.get_score(), str) else checkbox.get_score()
+                    scores[solution['name']] += added_score * importance_score
 
         # Create a new Toplevel window to display results
         result_window = tk.Toplevel(self.root)
