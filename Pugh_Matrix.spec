@@ -6,7 +6,7 @@ block_cipher = None
 
 a = Analysis(
     ['Pugh_Matrix.py'],
-    pathex=[],
+    pathex=['c:\\users\\clint\\appdata\\roaming\\python\\python312\\site-packages'],
     binaries=[],
     datas=[],
     hiddenimports=[],

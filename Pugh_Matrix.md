@@ -1,5 +1,9 @@
+import csv
 import tkinter as tk
 from tkinter import messagebox, ttk
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+from openpyxl import Workbook
 
 class CycleCheckbutton(tk.Label):
     def __init__(self, master=None, state_change_callback=None, **kw):
@@ -30,7 +34,6 @@ class CycleCheckbutton(tk.Label):
         value_scores = {"+": 1, "-": -1, "S": 0, " ": 0}
         return value_scores[self.values[self.current_value]]
 
-
 class MyApp:
     def __init__(self, root):
         self.root = root
@@ -54,6 +57,46 @@ class MyApp:
 
         self.show_input_criteria_frame()
 
+    def export_to_csv(self, data, filename="results.csv"):
+        with open(filename, 'w', newline='') as file:
+            writer = csv.writer(file)
+            # Assuming data is a list of tuples (name, score)
+            writer.writerow(['Solution Name', 'Score'])
+            for name, score in data:
+                writer.writerow([name, score])
+        messagebox.showinfo("Export Success", "Results exported successfully to CSV.")
+
+    def export_to_xlsx(self, scores, filename="Results.xlsx"):
+        # Create a workbook and select the active worksheet
+        wb = Workbook()
+        ws = wb.active
+        
+        # Add headers
+        ws.append(["Solution", "Score"])
+        
+        # Sort scores by descending order and alphabetically by name if scores are the same
+        sorted_scores = sorted(scores.items(), key=lambda item: (-item[1], item[0]))
+        
+        # Add data rows to the worksheet
+        for solution_name, score in sorted_scores:
+            ws.append([solution_name, score])
+        
+        # Save the workbook to a file
+        wb.save(filename)
+        print(f"Exported results to {filename}")
+
+    def export_to_xlsx(self, scores, filename="Results.xlsx"):
+        print("Exporting to XLSX", scores)  # Debug print
+        wb = Workbook()
+        ws = wb.active
+        ws.append(["Solution", "Score"])
+        sorted_scores = sorted(scores.items(), key=lambda item: (-item[1], item[0]))
+        for solution_name, score in sorted_scores:
+            ws.append([solution_name, score])
+        wb.save(filename)
+        print(f"Exported results to {filename}")  # Confirm file save
+        messagebox.showinfo("Export Success", f"Results exported successfully to {filename}.")
+
     def create_menu(self):
         menubar = tk.Menu(self.root)
         self.root.config(menu=menubar)
@@ -64,12 +107,79 @@ class MyApp:
         fileMenu.add_separator()
         fileMenu.add_command(label="Close", command=self.root.quit)
         menubar.add_cascade(label="File", menu=fileMenu)
+        
+        exportMenu = tk.Menu(menubar, tearoff=0)
+        exportMenu.add_command(label="Export to CSV", command=self.perform_csv_export)
+        exportMenu.add_command(label="Export to XLSX", command=self.perform_xlsx_export)
+        exportMenu.add_command(label="Export to PDF", command=self.perform_pdf_export)
+        menubar.add_cascade(label="Export", menu=exportMenu)
 
         viewMenu = tk.Menu(menubar, tearoff=0)
         viewMenu.add_command(label="Input Criteria", command=self.show_input_criteria_frame)
         viewMenu.add_command(label="Input Solution", command=self.show_input_solution_frame)
         viewMenu.add_command(label="View Calculation", command=self.show_input_calculation_frame)
         menubar.add_cascade(label="View", menu=viewMenu)
+
+    def perform_csv_export(self):
+        scores = self.get_scores()
+        self.export_to_csv(scores)
+
+    def perform_xlsx_export(self):
+        scores = self.calculate_scores()
+        self.export_to_xlsx(scores)
+
+
+    def perform_pdf_export(self):
+        scores = self.get_scores()
+        self.export_to_pdf(scores)
+
+    def get_scores(self):
+        # Logic to collect scores from your application's data
+        return [(solution['name'], score) for solution, score in zip(self.solution_data, self.calculate_scores())]
+
+    def calculate_scores(self):
+        scores = {}
+        importance_scores = {"Low": 1, "Medium": 2, "High": 3}
+        
+        # Initialize scores dictionary with solution names
+        for solution in self.solution_data:
+            scores[solution['name']] = 0
+        
+        for i, criterion in enumerate(self.criteria_data):
+            importance = criterion['importance']
+            importance_score = importance_scores[importance]
+            
+            for j, solution in enumerate(self.solution_data):
+                checkbox = self.content_frame.grid_slaves(row=i + 1, column=j + 1)[0]
+                if isinstance(checkbox, CycleCheckbutton):
+                    # Multiply the checkbox score by the importance score and add to the solution's total
+                    scores[solution['name']] += checkbox.get_score() * importance_score
+        
+        return scores
+
+
+    def display_results(self, scores):
+        # Create a new Toplevel window to display results
+        result_window = tk.Toplevel(self.root)
+        result_window.title("Results")
+        result_window.geometry("400x400")
+        
+        # Sort solutions by score descending, and by name alphabetically if scores are the same
+        sorted_solutions = sorted(scores.items(), key=lambda item: (-item[1], item[0]))
+        
+        # Display each solution and its score
+        for i, (solution_name, score) in enumerate(sorted_solutions):
+            result_label = tk.Label(result_window, text=f"{solution_name}: {score}", font=("Arial", 14))
+            result_label.pack(pady=(20, 0) if i == 0 else (10, 0))
+
+        # Add a close button to the window
+        close_button = tk.Button(result_window, text="Close", command=result_window.destroy)
+        close_button.pack(pady=20)
+
+    def calculate_and_display(self):
+        scores = self.calculate_scores()
+        self.display_results(scores)
+
 
     def create_content_frame(self):
         self.content_frame = tk.Frame(self.root)
