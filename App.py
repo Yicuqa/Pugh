@@ -2,21 +2,34 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 
 class CycleCheckbutton(tk.Label):
-    def __init__(self, master=None, **kw):
+    def __init__(self, master=None, state_change_callback=None, **kw):
         super().__init__(master, **kw)
         self.configure(wraplength=100)  # Wrap text if longer than 100 pixels
         self.values = [" ", "+", "-", "S"]
         self.current_value = 0
         self.configure(text=self.values[self.current_value], borderwidth=1, relief="groove", width=2)
         self.bind("<Button-1>", self.cycle_value)
+        self.state_change_callback = state_change_callback  # Store the callback
 
     def cycle_value(self, event=None):
         self.current_value = (self.current_value + 1) % len(self.values)
         self.configure(text=self.values[self.current_value])
+        # Invoke the callback if it's set
+        if self.state_change_callback:
+            self.state_change_callback(self.get_state())
+
+    def get_state(self):
+        return self.values[self.current_value]
+
+    def set_state(self, state):
+        if state in self.values:
+            self.current_value = self.values.index(state)
+            self.configure(text=state)
 
     def get_score(self):
         value_scores = {"+": 1, "-": -1, "S": 0, " ": 0}
         return value_scores[self.values[self.current_value]]
+
 
 class MyApp:
     def __init__(self, root):
@@ -173,22 +186,36 @@ class MyApp:
             messagebox.showinfo("Info", "No data to display in calculation view.")
             return
 
+        # Create labels for criteria and solutions
         for i, criterion in enumerate(self.criteria_data):
             tk.Label(self.content_frame, text=criterion['name'], borderwidth=1, relief="solid", wraplength=100).grid(row=i+1, column=0, sticky="nsew")
 
         for j, solution in enumerate(self.solution_data):
             tk.Label(self.content_frame, text=solution['name'], borderwidth=1, relief="solid", wraplength=100).grid(row=0, column=j+1, sticky="nsew")
-            for i in range(len(self.criteria_data)):
-                checkbutton = CycleCheckbutton(self.content_frame)
+            for i, criterion in enumerate(self.criteria_data):
+                # Retrieve the saved state or default to " "
+                state = criterion.get('states', {}).get(solution['name'], " ")
+                checkbutton = CycleCheckbutton(
+                    self.content_frame,
+                    state_change_callback=lambda state, c=criterion, s=solution['name']: self.update_checkbox_state(c, s, state)
+                )
+                checkbutton.set_state(state)
                 checkbutton.grid(row=i+1, column=j+1, sticky="nsew")
 
+        # Grid configuration for equal distribution
         for i in range(len(self.criteria_data) + 1):
             self.content_frame.grid_rowconfigure(i, weight=1)
         for j in range(len(self.solution_data) + 1):
             self.content_frame.grid_columnconfigure(j, weight=1)
 
+        # Button for calculating the scores
         calculate_button = ttk.Button(self.content_frame, text="Calculate", command=self.calculate)
         calculate_button.grid(row=len(self.criteria_data) + 1, columnspan=len(self.solution_data) + 1, sticky="ew")
+
+    def update_checkbox_state(self, criterion, solution_name, state):
+        # This method updates the state in the model
+        criterion.setdefault('states', {})[solution_name] = state
+
 
     def calculate(self):
         scores = {}
