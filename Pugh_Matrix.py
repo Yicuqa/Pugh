@@ -1,13 +1,18 @@
 import csv
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import filedialog, messagebox, ttk
 from openpyxl import Workbook
 from fpdf import FPDF
 
 class PDF(FPDF):
+    def __init__(self, title=None):
+        super().__init__()
+        self.title = title
+
     def header(self):
-        self.set_font('Arial', 'B', 12)
-        self.cell(0, 10, 'Solution Results', 0, 1, 'C')
+        if self.title:
+            self.set_font('Arial', 'B', 12)
+            self.cell(0, 10, self.title, 0, 1, 'C')
 
     def footer(self):
         self.set_y(-15)
@@ -66,26 +71,164 @@ class MyApp:
 
         self.show_input_criteria_frame()
 
-    def export_to_csv(self, data, filename="Results.csv"):
-        with open(filename, 'w', newline='') as file:
-            writer = csv.writer(file)
-            # Assuming data is a list of tuples (name, score)
-            writer.writerow(['Solution', 'Score'])
-            for name, score in data:
-                writer.writerow([name, score])
-        messagebox.showinfo("Export Success", "Results exported successfully to CSV.")
+    def collect_export_state_data(self):
+        data = []
+        headers = ['Criteria', 'Details', 'Importance']
+        solution_headers = []
+        for solution in self.solution_data:
+            solution_headers.extend([solution['name'] + " State", solution['name'] + " Details"])
 
-    def export_to_xlsx(self, scores, filename="Results.xlsx"):
-        print("Exporting to XLSX", scores)  # Debug print
-        wb = Workbook()
-        ws = wb.active
-        ws.append(["Solution", "Score"])
-        sorted_scores = sorted(scores.items(), key=lambda item: (-item[1], item[0]))
-        for solution_name, score in sorted_scores:
-            ws.append([solution_name, score])
-        wb.save(filename)
-        print(f"Exported results to {filename}")  # Confirm file save
-        messagebox.showinfo("Export Success", f"Results exported successfully to {filename}.")
+        headers.extend(solution_headers)
+
+        for i, criterion in enumerate(self.criteria_data):
+            row = [
+                criterion['name'],
+                criterion.get('details', ''),
+                criterion['importance']
+            ]
+            for j, solution in enumerate(self.solution_data):
+                checkbox = self.content_frame.grid_slaves(row=i+1, column=j+1)[0]
+                state = checkbox.get_state() if isinstance(checkbox, CycleCheckbutton) else " "
+                solution_detail = solution.get('details', '')
+                row.extend([state, solution_detail])
+            data.append(row)
+        return headers, data
+
+    def export_current_results_to_csv(self):
+        scores = self.calculate_scores()
+        data = [(name, score) for name, score in scores.items()]
+        self.export_to_csv(data)
+
+    def export_current_results_to_xlsx(self):
+        scores = self.calculate_scores()
+        self.export_to_xlsx(scores)
+
+    def export_current_results_to_pdf(self):
+        scores = self.calculate_scores()
+        data = [(name, score) for name, score in scores.items()]
+        self.export_to_pdf(data)
+
+
+    def export_state_to_csv(self):
+        # Let user choose filename and directory
+        filename = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+            title="Save as"
+        )
+        if not filename:  # If no file name is given, return without doing anything
+            return
+
+        # Collect the data to be exported
+        headers, data = self.collect_export_state_data()
+        
+        try:
+            with open(filename, 'w', newline='', encoding='utf-8') as file:
+                writer = csv.writer(file, delimiter=',')  # You can offer delimiter as a parameter
+                writer.writerow(headers)
+                for row in data:
+                    writer.writerow(row)
+            messagebox.showinfo("Export Success", f"Data exported successfully to CSV at {filename}.")
+        except Exception as e:
+            messagebox.showerror("Export Failed", f"Failed to export data: {e}")
+
+    def export_state_to_xlsx(self):
+        # Let user choose filename and directory
+        filename = filedialog.asksaveasfilename(
+            defaultextension=".xlsx",
+            filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
+            title="Save as"
+        )
+        if not filename:  # If no file name is given, return without doing anything
+            return
+
+        # Collect the data to be exported
+        headers, data = self.collect_export_state_data()
+        
+        try:
+            wb = Workbook()
+            ws = wb.active
+            ws.append(headers)
+            for row in data:
+                ws.append(row)
+            wb.save(filename)
+            messagebox.showinfo("Export Success", f"Data exported successfully to XLSX at {filename}.")
+        except Exception as e:
+            messagebox.showerror("Export Failed", f"Failed to export data: {e}")
+
+
+    def export_state_to_pdf(self, filename="ExportedStateData.pdf"):
+        # Let user choose filename and directory
+        filename = filedialog.asksaveasfilename(
+            defaultextension=".pdf",
+            filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")],
+            title="Save as"
+        )
+        if not filename:  # If no file name is given, return without doing anything
+            return
+
+        # Collect the data to be exported
+        headers, data = self.collect_export_state_data()
+        
+        try:
+            pdf = PDF(title='Data State')
+            pdf.add_page()
+            column_width = 190 / len(headers)  # Adjust column width based on the number of columns
+            pdf.set_font('Arial', 'B', 12)
+            for header in headers:
+                pdf.cell(column_width, 10, header, border=1, ln=0, align='C')
+            pdf.ln(10)
+
+            pdf.set_font('Arial', '', 12)
+            for row in data:
+                for item in row:
+                    pdf.cell(column_width, 10, str(item), border=1, ln=0, align='C')
+                pdf.ln(10)
+
+            pdf.output(filename)
+            messagebox.showinfo("Export Success", "Data exported successfully to PDF.")
+        except Exception as e:
+            messagebox.showerror("Export Failed", f"Failed to export data: {e}")
+
+    def export_to_csv(self, data):
+        filename = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+            title="Save as"
+        )
+        if not filename:
+            return  # Exit if no file was selected
+
+        try:
+            with open(filename, 'w', newline='') as file:
+                writer = csv.writer(file)
+                writer.writerow(['Solution', 'Score'])
+                for name, score in data:
+                    writer.writerow([name, score])
+            messagebox.showinfo("Export Success", f"Results exported successfully to CSV at {filename}.")
+        except Exception as e:
+            messagebox.showerror("Export Failed", f"Failed to export data: {e}")
+
+    def export_to_xlsx(self, scores):
+        filename = filedialog.asksaveasfilename(
+            defaultextension=".xlsx",
+            filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
+            title="Save as"
+        )
+        if not filename:
+            return
+
+        try:
+            wb = Workbook()
+            ws = wb.active
+            ws.append(["Solution", "Score"])
+            sorted_scores = sorted(scores.items(), key=lambda item: (-item[1], item[0]))
+            for solution_name, score in sorted_scores:
+                ws.append([solution_name, score])
+            wb.save(filename)
+            messagebox.showinfo("Export Success", f"Results exported successfully to XLSX at {filename}.")
+        except Exception as e:
+            messagebox.showerror("Export Failed", f"Failed to export data: {e}")
 
     def prepare_data_for_export(self):
         # Calculate scores
@@ -94,23 +237,31 @@ class MyApp:
         prepared_data = [(name, int(score)) for name, score in scores.items()]
         return prepared_data
 
-    def export_to_pdf(self, data, filename="Results.pdf"):
-        pdf = PDF()
-        pdf.add_page()
-        pdf.set_font('Arial', '', 12)
-        pdf.cell(40, 10, 'Solution', 0, 0)  # Adjusted cell width
-        pdf.cell(0, 10, 'Score', 0, 1, 'R')  # 'R' aligns right
+    def export_to_pdf(self, data):
+        filename = filedialog.asksaveasfilename(
+            defaultextension=".pdf",
+            filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")],
+            title="Save as"
+        )
+        if not filename:
+            return
 
-        # Ensure data is in the correct format and sort it
-        sorted_data = sorted(data, key=lambda x: (-x[1], x[0]))
+        try:
+            pdf = PDF(title='Results')
+            pdf.add_page()
+            pdf.set_font('Arial', '', 12)
+            pdf.cell(40, 10, 'Solution', 0, 0)  # Adjusted cell width
+            pdf.cell(0, 10, 'Score', 0, 1, 'R')  # 'R' aligns right
 
-        # Adding sorted data to the PDF
-        for name, score in sorted_data:
-            pdf.cell(40, 10, name, 0, 0)  # Adjusted cell width for name
-            pdf.cell(0, 10, str(score), 0, 1, 'R')
+            sorted_data = sorted(data, key=lambda x: (-x[1], x[0]))
+            for name, score in sorted_data:
+                pdf.cell(40, 10, name, 0, 0)
+                pdf.cell(0, 10, str(score), 0, 1, 'R')
 
-        pdf.output(filename)
-        messagebox.showinfo("Export Success", f"Results exported successfully to PDF as {filename}")
+            pdf.output(filename)
+            messagebox.showinfo("Export Success", f"Results exported successfully to PDF as {filename}.")
+        except Exception as e:
+            messagebox.showerror("Export Failed", f"Failed to export data: {e}")
 
     def create_menu(self):
         menubar = tk.Menu(self.root)
@@ -123,11 +274,12 @@ class MyApp:
         fileMenu.add_command(label="Close", command=self.root.quit)
         menubar.add_cascade(label="File", menu=fileMenu)
         
-#        exportMenu = tk.Menu(menubar, tearoff=0)
-#        exportMenu.add_command(label="Export to CSV", command=self.perform_csv_export)
-#        exportMenu.add_command(label="Export to XLSX", command=self.perform_xlsx_export)
-#        exportMenu.add_command(label="Export to PDF", command=self.perform_pdf_export)
-#        menubar.add_cascade(label="Export", menu=exportMenu)
+        exportMenu = tk.Menu(menubar, tearoff=0)
+        exportMenu.add_command(label="Export State to CSV", command=lambda: self.export_state_to_csv())
+        exportMenu.add_command(label="Export State to XLSX", command=lambda: self.export_state_to_xlsx())
+        exportMenu.add_command(label="Export State to PDF", command=lambda: self.export_state_to_pdf())
+        menubar.add_cascade(label="Export", menu=exportMenu)
+
 
         viewMenu = tk.Menu(menubar, tearoff=0)
         viewMenu.add_command(label="Input Criteria", command=self.show_input_criteria_frame)
@@ -375,15 +527,15 @@ class MyApp:
         buttons_frame.pack(pady=20)
 
         # Button for exporting to CSV
-        export_csv_button = ttk.Button(buttons_frame, text="Export to CSV", command=lambda: self.perform_csv_export(scores))
+        export_csv_button = ttk.Button(buttons_frame, text="Export to CSV", command=self.export_current_results_to_csv)
         export_csv_button.pack(side='left', padx=10)
 
         # Button for exporting to XLSX
-        export_xlsx_button = ttk.Button(buttons_frame, text="Export to XLSX", command=lambda: self.perform_xlsx_export(scores))
+        export_xlsx_button = ttk.Button(buttons_frame, text="Export to XLSX", command=self.export_current_results_to_xlsx)
         export_xlsx_button.pack(side='left', padx=10)
 
         # Button for exporting to PDF
-        export_pdf_button = ttk.Button(buttons_frame, text="Export to PDF", command=lambda: self.perform_pdf_export(scores))
+        export_pdf_button = ttk.Button(buttons_frame, text="Export to PDF", command=self.export_current_results_to_pdf)
         export_pdf_button.pack(side='left', padx=10)
 
 if __name__ == "__main__":
