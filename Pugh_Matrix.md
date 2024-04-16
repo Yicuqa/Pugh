@@ -1,3 +1,4 @@
+import json
 import csv
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
@@ -94,43 +95,40 @@ class MyApp:
             data.append(row)
         return headers, data
 
-    def export_current_results_to_csv(self):
-        scores = self.calculate_scores()
-        data = [(name, score) for name, score in scores.items()]
-        self.export_to_csv(data)
-
-    def export_current_results_to_xlsx(self):
-        scores = self.calculate_scores()
-        self.export_to_xlsx(scores)
-
-    def export_current_results_to_pdf(self):
-        scores = self.calculate_scores()
-        data = [(name, score) for name, score in scores.items()]
-        self.export_to_pdf(data)
-
-    def export_state(self):
-        # Options for save file dialog to allow selecting file type
-        file_types = [
-            ("Excel files", "*.xlsx"),
-            ("CSV files", "*.csv"),
-            ("PDF files", "*.pdf"),
-            ("All files", "*.*")
-        ]
-        filename = filedialog.asksaveasfilename(
-            defaultextension=".xlsx",  # Default file extension
-            filetypes=file_types,     # List of tuples specifying allowed file types
-            title="Save as"
+    def import_state(self):
+        filename = filedialog.askopenfilename(
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+            title="Import from"
         )
-        
+        if filename:
+            self.import_state_from_json(filename)
         if not filename:
             return  # User cancelled the dialog
 
-        if filename.endswith('.xlsx'):
-            self.export_state_to_xlsx(filename)
-        elif filename.endswith('.csv'):
-            self.export_state_to_csv(filename)
-        elif filename.endswith('.pdf'):
-            self.export_state_to_pdf(filename)
+    def import_state_from_json(self, filename):
+        try:
+            with open(filename, 'r') as file:
+                state = json.load(file)
+            self.criteria_data = state.get('criteria', [])
+            self.solution_data = state.get('solutions', [])
+            
+            # You need to update your views to reflect this data
+            self.show_input_criteria_frame()
+            self.show_input_solution_frame()
+            messagebox.showinfo("Import Success", "State imported successfully.")
+        except Exception as e:
+            messagebox.showerror("Import Failed", f"Failed to import data: {e}")
+            
+
+    def export_state(self):
+        # Options for save file dialog to allow selecting file type
+        filename = filedialog.asksaveasfilename(
+            defaultextension=".json",
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+            title="Export as"
+        )
+        if filename:
+            self.export_state_to_json(filename)
         else:
             messagebox.showerror("Export Error", "Unsupported file format selected.")
 
@@ -163,53 +161,18 @@ class MyApp:
         else:
             messagebox.showerror("Export Error", "Unsupported file format selected.")
 
-    def export_state_to_csv(self, filename):
-        headers, data = self.collect_export_state_data()
+    def export_state_to_json(self, filename='state.json'):
+        state = {
+            'criteria': self.criteria_data,
+            'solutions': self.solution_data,
+            # Add other relevant data here
+        }
         try:
-            with open(filename, 'w', newline='', encoding='utf-8') as file:
-                writer = csv.writer(file)
-                writer.writerow(headers)
-                for row in data:
-                    writer.writerow(row)
-            messagebox.showinfo("Export Success", f"Data exported successfully to CSV at {filename}.")
+            with open(filename, 'w') as file:
+                json.dump(state, file, indent=4)
+            messagebox.showinfo("Export Success", f"State exported successfully to {filename}.")
         except Exception as e:
             messagebox.showerror("Export Failed", f"Failed to export data: {e}")
-
-    def export_state_to_xlsx(self, filename):
-        headers, data = self.collect_export_state_data()
-        try:
-            wb = Workbook()
-            ws = wb.active
-            ws.append(headers)
-            for row in data:
-                ws.append(row)
-            wb.save(filename)
-            messagebox.showinfo("Export Success", f"Data exported successfully to XLSX at {filename}.")
-        except Exception as e:
-            messagebox.showerror("Export Failed", f"Failed to export data: {e}")
-
-    def export_state_to_pdf(self, filename):
-        headers, data = self.collect_export_state_data()
-        try:
-            pdf = PDF(title='Data State')
-            pdf.add_page()
-            column_width = 190 / len(headers)
-            pdf.set_font('Arial', 'B', 12)
-            for header in headers:
-                pdf.cell(column_width, 10, header, border=1, ln=0, align='C')
-            pdf.ln(10)
-            
-            pdf.set_font('Arial', '', 12)
-            for row in data:
-                for item in row:
-                    pdf.cell(column_width, 10, str(item), border=1, ln=0, align='C')
-                pdf.ln(10)
-            
-            pdf.output(filename)
-            messagebox.showinfo("Export Success", f"Data exported successfully to PDF at {filename}.")
-        except Exception as e:
-            messagebox.showerror("Export Failed", f"Failed to export data: {e}")
-
 
     def export_to_csv(self, data, filename):
         try:
@@ -266,6 +229,7 @@ class MyApp:
         fileMenu = tk.Menu(menubar, tearoff=0)
         fileMenu.add_command(label="Open New", command=self.prompt_save_before_reset)
         fileMenu.add_command(label="Export State", command=self.export_state)
+        fileMenu.add_command(label="Import State", command=self.import_state)
         fileMenu.add_separator()
         fileMenu.add_command(label="Help", command=lambda: messagebox.showinfo("Popup", "Not supported yet!"))
         fileMenu.add_separator()
