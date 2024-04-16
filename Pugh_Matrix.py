@@ -114,7 +114,6 @@ class MyApp:
             
             # You need to update your views to reflect this data
             self.show_input_criteria_frame()
-            self.show_input_solution_frame()
             messagebox.showinfo("Import Success", "State imported successfully.")
         except Exception as e:
             messagebox.showerror("Import Failed", f"Failed to import data: {e}")
