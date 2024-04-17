@@ -109,18 +109,24 @@ class MyApp:
         try:
             with open(filename, 'r') as file:
                 state = json.load(file)
+            print("Imported state:", state)  # Debug output
             self.criteria_data = state.get('criteria', [])
             self.solution_data = state.get('solutions', [])
-            
-            # You need to update your views to reflect this data
+            print("Updated criteria data:", self.criteria_data)  # Confirm data update
+            print("Updated solution data:", self.solution_data)
+
+            # Refresh views
+            self.show_input_solution_frame()
             self.show_input_criteria_frame()
+            self.reset_grid_configuration()
             messagebox.showinfo("Import Success", "State imported successfully.")
         except Exception as e:
             messagebox.showerror("Import Failed", f"Failed to import data: {e}")
-            
 
     def export_state(self):
-        # Options for save file dialog to allow selecting file type
+        # Ensure all data entries are updated before exporting
+        self.update_data_from_entries()
+
         filename = filedialog.asksaveasfilename(
             defaultextension=".json",
             filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
@@ -130,6 +136,7 @@ class MyApp:
             self.export_state_to_json(filename)
         else:
             messagebox.showerror("Export Error", "Unsupported file format selected.")
+
 
     def export_results(self):
         scores = self.calculate_scores()
@@ -317,14 +324,28 @@ class MyApp:
         self.content_frame.pack(fill='both', expand=True)
 
     def clear_content_frame(self):
-        self.update_data_from_entries()  # Update data model before clearing frame
-        self.criteria_entries.clear()
-        self.importance_comboboxes.clear()
-        self.solution_entries.clear()
         for widget in self.content_frame.winfo_children():
             widget.destroy()
+        self.reset_grid_configuration()  # Reset configuration after clearing widgets
+        self.content_frame.update_idletasks()  # Force update
+
+    def reset_grid_configuration(self):
+        # Clear any previous grid configuration thoroughly
+        current_rows, current_cols = self.content_frame.grid_size()
+        for i in range(current_rows):
+            self.content_frame.grid_rowconfigure(i, weight=0, minsize=0)
+        for j in range(current_cols):
+            self.content_frame.grid_columnconfigure(j, weight=0, minsize=0)
+
+        # Apply new configurations based on current data
+        for i in range(len(self.criteria_data) + 1):  # +1 for headers
+            self.content_frame.grid_rowconfigure(i, weight=1)
+        for j in range(len(self.solution_data) + 1):
+            self.content_frame.grid_columnconfigure(j, weight=1)
+
 
     def update_data_from_entries(self):
+        # Update criteria data
         for i, entry in enumerate(self.criteria_entries):
             if i < len(self.criteria_data):
                 self.criteria_data[i]['name'] = entry.get()
@@ -332,19 +353,23 @@ class MyApp:
                 details_entry = entry.master.children['details_entry']
                 self.criteria_data[i]['details'] = details_entry.get()
 
+        # Update solution data
         for i, entry in enumerate(self.solution_entries):
             if i < len(self.solution_data):
                 self.solution_data[i]['name'] = entry.get()
-                # Capture details from the adjacent details entry widget
                 details_entry = entry.master.children['details_entry']
                 self.solution_data[i]['details'] = details_entry.get()
 
+
     def show_input_criteria_frame(self):
         self.clear_content_frame()
+        
         criteria_container = tk.Frame(self.content_frame)
         criteria_container.pack(fill='x', expand=True, pady=10)
+        
         header_frame = tk.Frame(criteria_container)
         header_frame.pack(fill='x', expand=True)
+        
         tk.Label(header_frame, text="Criteria", font=('Arial', 12), borderwidth=1, relief="groove").pack(side='left', expand=True)
         tk.Label(header_frame, text="Details", font=('Arial', 12), borderwidth=1, relief="groove").pack(side='left', expand=True)
         tk.Label(header_frame, text="Importance", font=('Arial', 12), borderwidth=1, relief="groove").pack(side='left', expand=True)
@@ -354,8 +379,11 @@ class MyApp:
 
         action_frame = tk.Frame(self.content_frame)
         action_frame.pack(fill='x', pady=10)
+        
         ttk.Button(action_frame, text="Add Criteria", command=self.add_criteria).pack(side='left', padx=10)
-        ttk.Button(action_frame, text="Delete Last Criteria", command=self.delete_criteria).pack(side='left')
+        ttk.Button(action_frame, text="Delete Criteria", command=self.delete_criteria).pack(side='left')
+
+        self.reset_grid_configuration()
 
     def add_criteria_row(self, container, criterion, index):
         row_frame = tk.Frame(container)
@@ -380,6 +408,7 @@ class MyApp:
         if len(self.criteria_data) < 13:
             self.criteria_data.append({'name': '', 'importance': 'Low'})
             self.show_input_criteria_frame()
+            self.reset_grid_configuration()
         else:
             messagebox.showinfo("Limit Reached", "A maximum of 13 criteria rows are allowed.")
 
@@ -387,8 +416,10 @@ class MyApp:
         if len(self.criteria_data) > 1:
             self.criteria_data.pop()
             self.show_input_criteria_frame()
+            self.reset_grid_configuration()
         else:
             messagebox.showinfo("Minimum Requirement", "At least one criteria must be present.")
+
 
     def show_input_solution_frame(self):
         self.clear_content_frame()
@@ -399,13 +430,17 @@ class MyApp:
         tk.Label(header_frame, text="Solutions", font=('Arial', 12), borderwidth=1, relief="groove").pack(side='left', expand=True)
         tk.Label(header_frame, text="Details", font=('Arial', 12), borderwidth=1, relief="groove").pack(side='left', expand=True)
 
+        self.solution_entries = []
+
         for index, solution in enumerate(self.solution_data):
             self.add_solution_row(solution_container, solution, index)
 
         action_frame = tk.Frame(self.content_frame)
         action_frame.pack(fill='x', pady=10)
         ttk.Button(action_frame, text="Add Solution", command=self.add_solution).pack(side='left', padx=10)
-        ttk.Button(action_frame, text="Delete Last Solution", command=self.delete_solution).pack(side='left')
+        ttk.Button(action_frame, text="Delete Solution", command=self.delete_solution).pack(side='left')
+
+        self.reset_grid_configuration()
 
     def add_solution_row(self, container, solution, index):
         row_frame = tk.Frame(container)
@@ -424,6 +459,7 @@ class MyApp:
         if len(self.solution_data) < 14:
             self.solution_data.append({'name': '', 'details': ''})
             self.show_input_solution_frame()
+            self.reset_grid_configuration()
         else:
             messagebox.showinfo("Limit Reached", "A maximum of 14 solution rows are allowed.")
 
@@ -431,23 +467,24 @@ class MyApp:
         if len(self.solution_data) > 1:
             self.solution_data.pop()
             self.show_input_solution_frame()
+            self.reset_grid_configuration()
         else:
             messagebox.showinfo("Minimum Requirement", "At least one solution must be present.")
 
     def show_input_calculation_frame(self):
-        self.clear_content_frame()
+        self.clear_content_frame()  # Clear previous widgets
         if not self.criteria_data or not self.solution_data:
             messagebox.showinfo("Info", "No data to display in calculation view.")
             return
 
-        # Create labels for criteria and solutions
+        # Re-create the grid for the current state
         for i, criterion in enumerate(self.criteria_data):
             tk.Label(self.content_frame, text=criterion['name'], borderwidth=1, relief="solid", wraplength=100).grid(row=i+1, column=0, sticky="nsew")
 
         for j, solution in enumerate(self.solution_data):
             tk.Label(self.content_frame, text=solution['name'], borderwidth=1, relief="solid", wraplength=100).grid(row=0, column=j+1, sticky="nsew")
+            
             for i, criterion in enumerate(self.criteria_data):
-                # Retrieve the saved state or default to " "
                 state = criterion.get('states', {}).get(solution['name'], " ")
                 checkbutton = CycleCheckbutton(
                     self.content_frame,
@@ -456,15 +493,18 @@ class MyApp:
                 checkbutton.set_state(state)
                 checkbutton.grid(row=i+1, column=j+1, sticky="nsew")
 
-        # Grid configuration for equal distribution
+        # Apply new grid configurations
         for i in range(len(self.criteria_data) + 1):
             self.content_frame.grid_rowconfigure(i, weight=1)
         for j in range(len(self.solution_data) + 1):
             self.content_frame.grid_columnconfigure(j, weight=1)
 
-        # Button for calculating the scores
+        # Add a calculate button if it's part of your design
         calculate_button = ttk.Button(self.content_frame, text="Calculate", command=self.calculate)
         calculate_button.grid(row=len(self.criteria_data) + 1, columnspan=len(self.solution_data) + 1, sticky="ew")
+
+        self.reset_grid_configuration()  # Ensure grid configurations are properly reset
+
 
     def update_checkbox_state(self, criterion, solution_name, state):
         # This method updates the state in the model
