@@ -4,6 +4,22 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from openpyxl import Workbook
 from fpdf import FPDF
+import os
+import sys
+
+#https://stackoverflow.com/questions/31836104/pyinstaller-and-onefile-how-to-include-an-image-in-the-exe-file
+def resource_path(relative_path):
+    # Get absolute path to resource, works for dev and for PyInstaller
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS2
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
+
+Logo = resource_path("icon.ico")
+
 
 class PDF(FPDF):
     def __init__(self, title=None):
@@ -29,7 +45,6 @@ class CycleCheckbutton(tk.Label):
         self.configure(text=self.values[self.current_value], borderwidth=1, relief="groove")
         self.bind("<Button-1>", self.cycle_value)
         self.state_change_callback = state_change_callback
-
 
     def cycle_value(self, event=None):
         self.current_value = (self.current_value + 1) % len(self.values)
@@ -57,9 +72,6 @@ class MyApp:
         self.root.geometry("700x500")
         self.create_menu()
         self.create_content_frame()
-
-        # Set the window icon
-        root.iconbitmap(r'picture\pugh_matrix_Vz5_2.ico')
 
         # Create a style object
         style = ttk.Style(root)
@@ -148,8 +160,8 @@ class MyApp:
             self.criteria_data = state.get('criteria', [])
 
             # Rebuild the UI components with the newly imported data
-            self.show_input_solution_frame()
             self.show_input_criteria_frame()
+            self.show_input_solution_frame()
             
             messagebox.showinfo("Import Success", "State imported successfully.")
         except Exception as e:
@@ -302,8 +314,8 @@ class MyApp:
 
         # Populate with initial default data
         self.solution_data = [
-            {'name': 'Solution 1', 'details': ''},
-            {'name': 'Solution 2', 'details': ''}
+            {'name': 'Baseline', 'details': 'If compared with existing: S, + or -'},
+            {'name': 'Solution 1', 'details': ''}
         ]
 
         self.criteria_data = [

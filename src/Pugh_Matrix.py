@@ -314,8 +314,8 @@ class MyApp:
 
         # Populate with initial default data
         self.solution_data = [
-            {'name': 'Solution 1', 'details': ''},
-            {'name': 'Solution 2', 'details': ''}
+            {'name': 'Baseline', 'details': 'If compared with existing: S, + or -'},
+            {'name': 'Solution 1', 'details': ''}
         ]
 
         self.criteria_data = [
