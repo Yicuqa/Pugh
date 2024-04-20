@@ -4,6 +4,9 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from openpyxl import Workbook
 from fpdf import FPDF
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+
 
 class PDF(FPDF):
     def __init__(self, title=None):
@@ -23,12 +26,13 @@ class PDF(FPDF):
 class CycleCheckbutton(tk.Label):
     def __init__(self, master=None, state_change_callback=None, **kw):
         super().__init__(master, **kw)
-        self.configure(wraplength=100)  # Wrap text if longer than 100 pixels
+        self.configure(font=('Helvetica', 10), wraplength=100, bg='#f0f0f0', fg='black', relief='flat', pady=1, padx=1)
         self.values = [" ", "+", "-", "S"]
         self.current_value = 0
-        self.configure(text=self.values[self.current_value], borderwidth=1, relief="groove", width=2)
+        self.configure(text=self.values[self.current_value], borderwidth=1, relief="groove")
         self.bind("<Button-1>", self.cycle_value)
-        self.state_change_callback = state_change_callback  # Store the callback
+        self.state_change_callback = state_change_callback
+
 
     def cycle_value(self, event=None):
         self.current_value = (self.current_value + 1) % len(self.values)
@@ -49,6 +53,23 @@ class CycleCheckbutton(tk.Label):
         value_scores = {"+": 1, "-": -1, "S": 0, " ": 0}
         return value_scores[self.values[self.current_value]]
 
+class ToggleButton(tk.Frame):
+    def __init__(self, master, **kwargs):
+        super().__init__(master, **kwargs)
+        self.config(borderwidth=2, relief="raised")
+        self.value = tk.BooleanVar(self, False)
+        self.bind("<Button-1>", self.toggle)
+        self.draw_button()
+
+    def draw_button(self):
+        self.label = tk.Label(self, text='Off', bg='red', width=8)
+        self.label.pack(pady=2, padx=2)
+
+    def toggle(self, event):
+        self.value.set(not self.value.get())
+        self.label.config(text='On' if self.value.get() else 'Off', bg='green' if self.value.get() else 'red')
+
+
 class MyApp:
     def __init__(self, root):
         self.root = root
@@ -57,13 +78,39 @@ class MyApp:
         self.create_menu()
         self.create_content_frame()
 
-        self.criteria_data = [
-            {'name': 'Criteria 1', 'details': '', 'importance': 'Low'},
-            {'name': 'Criteria 2', 'details': '', 'importance': 'Low'}
-        ]
+        # Create a style object
+        style = ttk.Style(root)
+        # Set the theme
+        style.theme_use('clam')  # 'alt', 'clam', 'classic', 'default', 'vista'
+
+        # Configure Label Style
+        style.configure('TLabel', font=('Helvetica', 12), background='#f0f0f0', foreground='black')
+
+        # Entry Widget Styling
+        style.configure('TEntry', font=('Helvetica', 12), padding=5, relief='flat', background='white')
+
+
+        # Configure Button Style
+        style.configure('TButton', font=('Helvetica', 12), padding=1, relief='flat', background='#0066FF', foreground='white')
+        style.map('TButton', 
+            foreground=[('pressed', 'white'), ('active', 'white')],
+            background=[('pressed', '!disabled', 'black'), ('active', '#0057d9')],
+            relief=[('pressed', 'sunken'), ('!pressed', 'flat')])
+
+        # Label styling
+        style.configure('TLabel', font=('Helvetica', 12), background='lightgray')
+
+        # Entry styling with padding
+        style.configure('TEntry', padding=5)
+
         self.solution_data = [
             {'name': 'Solution 1', 'details': ''},
             {'name': 'Solution 2', 'details': ''}
+        ]
+        
+        self.criteria_data = [
+            {'name': 'Criteria 1', 'details': '', 'importance': 'Low'},
+            {'name': 'Criteria 2', 'details': '', 'importance': 'Low'}
         ]
 
         self.solution_entries = []  # Entries for solution names
@@ -71,6 +118,18 @@ class MyApp:
         self.importance_comboboxes = []  # Comboboxes for criteria importance
 
         self.show_input_solution_frame()
+
+    def toggle_theme(self):
+        current_theme = self.style.theme_use()
+        new_theme = 'alt' if current_theme == 'clam' else 'clam'
+        self.style.theme_use(new_theme)
+        messagebox.showinfo("Theme Toggled", f"Switched to {'Dark' if new_theme == 'alt' else 'Light'} Theme")
+
+
+    def create_content_frame(self):
+        self.content_frame = tk.Frame(self.root, background='#f0f0f0', pady=5, padx=5)
+        self.content_frame.pack(fill='both', expand=True, padx=10, pady=10)
+
 
     def collect_export_state_data(self):
         data = []
@@ -109,19 +168,26 @@ class MyApp:
         try:
             with open(filename, 'r') as file:
                 state = json.load(file)
-            print("Imported state:", state)  # Debug output
-            self.criteria_data = state.get('criteria', [])
-            self.solution_data = state.get('solutions', [])
-            print("Updated criteria data:", self.criteria_data)  # Confirm data update
-            print("Updated solution data:", self.solution_data)
+            
+            # Clear the frame without updating entries from UI to model
+            self.clear_content_frame(update_entries=False)
 
-            # Refresh views
-            self.show_input_criteria_frame()
+            self.solution_data = state.get('solutions', [])
+            self.criteria_data = state.get('criteria', [])
+
+            # Rebuild the UI components with the newly imported data
             self.show_input_solution_frame()
-            self.reset_grid_configuration()
+            self.show_input_criteria_frame()
+            
             messagebox.showinfo("Import Success", "State imported successfully.")
         except Exception as e:
             messagebox.showerror("Import Failed", f"Failed to import data: {e}")
+
+
+    def refresh_views(self):
+        # Refreshes the UI for solution and criteria entries
+        self.show_input_criteria_frame()
+        self.show_input_solution_frame()
 
     def export_state(self):
         # Ensure all data entries are updated before exporting
@@ -136,7 +202,6 @@ class MyApp:
             self.export_state_to_json(filename)
         else:
             messagebox.showerror("Export Error", "Unsupported file format selected.")
-
 
     def export_results(self):
         scores = self.calculate_scores()
@@ -230,23 +295,24 @@ class MyApp:
             messagebox.showerror("Export Failed", f"Failed to export data: {e}")
 
     def create_menu(self):
-        menubar = tk.Menu(self.root)
-        self.root.config(menu=menubar)
-        fileMenu = tk.Menu(menubar, tearoff=0)
+        menubar = tk.Menu(self.root, background='lightgrey', foreground='black', activebackground='#0057d9', activeforeground='white')
+        fileMenu = tk.Menu(menubar, tearoff=0, background='lightgrey', foreground='black')
         fileMenu.add_command(label="Open New", command=self.prompt_save_before_reset)
         fileMenu.add_command(label="Export State", command=self.export_state)
         fileMenu.add_command(label="Import State", command=self.import_state)
         fileMenu.add_separator()
-        fileMenu.add_command(label="Help", command=lambda: messagebox.showinfo("Popup", "Not supported yet!"))
+        fileMenu.add_command(label="Help", command=lambda: messagebox.showinfo("Help", "Not supported yet!"))
         fileMenu.add_separator()
         fileMenu.add_command(label="Close", command=self.root.quit)
         menubar.add_cascade(label="File", menu=fileMenu)
 
-        viewMenu = tk.Menu(menubar, tearoff=0)
+        viewMenu = tk.Menu(menubar, tearoff=0, background='lightgrey', foreground='black')
         viewMenu.add_command(label="Input Solution", command=self.show_input_solution_frame)
         viewMenu.add_command(label="Input Criteria", command=self.show_input_criteria_frame)
         viewMenu.add_command(label="View Calculation", command=self.show_input_calculation_frame)
         menubar.add_cascade(label="View", menu=viewMenu)
+        self.root.config(menu=menubar)
+
 
     def prompt_save_before_reset(self):
         response = messagebox.askyesnocancel("Save Current State", "Do you want to save the current state before opening a new session?")
@@ -315,20 +381,38 @@ class MyApp:
         
         return scores
 
+    def display_results(self, scores):
+        figure = plt.Figure(figsize=(6, 5), dpi=100)
+        ax = figure.add_subplot(111)
+        data = [score for _, score in scores.items()]
+        labels = [name for name, _ in scores.items()]
+        ax.bar(labels, data, color='blue')
+        ax.set_title('Solution Scores')
+        canvas = FigureCanvasTkAgg(figure, self.root)
+        canvas_widget = canvas.get_tk_widget()
+        canvas_widget.pack()
+        canvas.draw()
+
     def calculate_and_display(self):
         scores = self.calculate_scores()
         self.display_results(scores)
 
 
-    def create_content_frame(self):
-        self.content_frame = tk.Frame(self.root)
-        self.content_frame.pack(fill='both', expand=True)
+    def clear_content_frame(self, update_entries=True):
+        # Clears the content frame, optionally updating entries to the data model before clearing
+        if update_entries:
+            self.update_data_from_entries()  # Update data model from entries if required
 
-    def clear_content_frame(self):
+        self.criteria_entries.clear()
+        self.importance_comboboxes.clear()
+        self.solution_entries.clear()
+        
         for widget in self.content_frame.winfo_children():
             widget.destroy()
+
         self.reset_grid_configuration()  # Reset configuration after clearing widgets
         self.content_frame.update_idletasks()  # Force update
+
 
     def reset_grid_configuration(self):
         # Clear any previous grid configuration thoroughly
@@ -344,16 +428,7 @@ class MyApp:
         for j in range(len(self.solution_data) + 1):
             self.content_frame.grid_columnconfigure(j, weight=1)
 
-
     def update_data_from_entries(self):
-        # Update solution data
-        for i, entry in enumerate(self.solution_entries):
-            if i < len(self.solution_data):
-                self.solution_data[i]['name'] = entry.get()
-                details_entry = entry.master.children['details_entry']
-                self.solution_data[i]['details'] = details_entry.get()
-
-        # Update criteria data
         for i, entry in enumerate(self.criteria_entries):
             if i < len(self.criteria_data):
                 self.criteria_data[i]['name'] = entry.get()
@@ -361,51 +436,55 @@ class MyApp:
                 details_entry = entry.master.children['details_entry']
                 self.criteria_data[i]['details'] = details_entry.get()
 
+        for i, entry in enumerate(self.solution_entries):
+            if i < len(self.solution_data):
+                self.solution_data[i]['name'] = entry.get()
+                # Capture details from the adjacent details entry widget
+                details_entry = entry.master.children['details_entry']
+                self.solution_data[i]['details'] = details_entry.get()
+
     def show_input_solution_frame(self):
+        # Builds the input area for solution entries dynamically based on current data
         self.clear_content_frame()
-        
         solution_container = tk.Frame(self.content_frame)
         solution_container.pack(fill='x', expand=True, pady=10)
-        
+
         header_frame = tk.Frame(solution_container)
         header_frame.pack(fill='x', expand=True)
-        
-        tk.Label(header_frame, text="Solutions", font=('Arial', 12), borderwidth=1, relief="groove").pack(side='left', expand=True)
-        tk.Label(header_frame, text="Details", font=('Arial', 12), borderwidth=1, relief="groove").pack(side='left', expand=True)
+        ttk.Label(header_frame, text="Solutions", style='DataLabel.TLabel').pack(side='left', expand=True)
+        ttk.Label(header_frame, text="Details", style='DataLabel.TLabel').pack(side='left', expand=True)
 
+        # Clear previous entries list to avoid duplications
         self.solution_entries = []
-
         for index, solution in enumerate(self.solution_data):
             self.add_solution_row(solution_container, solution, index)
 
         action_frame = tk.Frame(self.content_frame)
         action_frame.pack(fill='x', pady=10)
-        
         ttk.Button(action_frame, text="Add Solution", command=self.add_solution).pack(side='left', padx=10)
         ttk.Button(action_frame, text="Delete Solution", command=self.delete_solution).pack(side='left')
 
         self.reset_grid_configuration()
 
     def add_solution_row(self, container, solution, index):
+        # Adds a single solution row in the UI
         row_frame = tk.Frame(container)
         row_frame.pack(fill='x', expand=True, padx=5, pady=5)
-        
         entry = tk.Entry(row_frame)
         entry.insert(0, solution['name'])
         entry.pack(side='left', fill='x', expand=True)
-        self.solution_entries.append(entry)
-        
         details_entry = tk.Entry(row_frame, name='details_entry')
         details_entry.insert(0, solution.get('details', ''))
         details_entry.pack(side='left', fill='x', expand=True)
+        self.solution_entries.append(entry)  # Keep track of the entry for later use
 
     def add_solution(self):
-        if len(self.solution_data) < 14:
+        if len(self.solution_data) < 13:
             self.solution_data.append({'name': '', 'details': ''})
             self.show_input_solution_frame()
             self.reset_grid_configuration()
         else:
-            messagebox.showinfo("Limit Reached", "A maximum of 14 solution rows are allowed.")
+            messagebox.showinfo("Limit Reached", "A maximum of 13 solution rows are allowed.")
 
     def delete_solution(self):
         if len(self.solution_data) > 1:
@@ -416,56 +495,58 @@ class MyApp:
             messagebox.showinfo("Minimum Requirement", "At least one solution must be present.")
 
     def show_input_criteria_frame(self):
+        # Builds the input area for criteria entries dynamically based on current data
         self.clear_content_frame()
-        
         criteria_container = tk.Frame(self.content_frame)
         criteria_container.pack(fill='x', expand=True, pady=10)
-        
+
         header_frame = tk.Frame(criteria_container)
         header_frame.pack(fill='x', expand=True)
-        
-        tk.Label(header_frame, text="Criteria", font=('Arial', 12), borderwidth=1, relief="groove").pack(side='left', expand=True)
-        tk.Label(header_frame, text="Details", font=('Arial', 12), borderwidth=1, relief="groove").pack(side='left', expand=True)
-        tk.Label(header_frame, text="Importance", font=('Arial', 12), borderwidth=1, relief="groove").pack(side='left', expand=True)
+        ttk.Label(header_frame, text="Criteria", style='DataLabel.TLabel').pack(side='left', expand=True)
+        ttk.Label(header_frame, text="Details", style='DataLabel.TLabel').pack(side='left', expand=True)
+        ttk.Label(header_frame, text="Importance", style='DataLabel.TLabel').pack(side='left', expand=True)
 
+        # Clear previous entries list to avoid duplications
+        self.criteria_entries = []
+        self.importance_comboboxes = []
         for index, criterion in enumerate(self.criteria_data):
             self.add_criteria_row(criteria_container, criterion, index)
 
         action_frame = tk.Frame(self.content_frame)
         action_frame.pack(fill='x', pady=10)
-        
         ttk.Button(action_frame, text="Add Criteria", command=self.add_criteria).pack(side='left', padx=10)
         ttk.Button(action_frame, text="Delete Criteria", command=self.delete_criteria).pack(side='left')
 
         self.reset_grid_configuration()
 
     def add_criteria_row(self, container, criterion, index):
+        # Adds a single criteria row in the UI
         row_frame = tk.Frame(container)
         row_frame.pack(fill='x', expand=True, padx=5, pady=5)
         
         entry = tk.Entry(row_frame)
         entry.insert(0, criterion['name'])
         entry.pack(side='left', fill='x', expand=True)
-        self.criteria_entries.append(entry)
-
-        # Add detail entry
+        
         details_entry = tk.Entry(row_frame, name='details_entry')
         details_entry.insert(0, criterion.get('details', ''))
         details_entry.pack(side='left', fill='x', expand=True)
         
-        # Add importance rank
+        # Importance combobox setup
         importance_combobox = ttk.Combobox(row_frame, values=["Low", "Medium", "High"], state="readonly")
         importance_combobox.set(criterion['importance'])
         importance_combobox.pack(side='left', expand=True)
-        self.importance_comboboxes.append(importance_combobox)
+        
+        self.criteria_entries.append(entry)  # Keep track of the entry for later use
+        self.importance_comboboxes.append(importance_combobox)  # Keep track of the combobox for later use
 
     def add_criteria(self):
-        if len(self.criteria_data) < 13:
+        if len(self.criteria_data) < 12:
             self.criteria_data.append({'name': '', 'importance': 'Low'})
             self.show_input_criteria_frame()
             self.reset_grid_configuration()
         else:
-            messagebox.showinfo("Limit Reached", "A maximum of 13 criteria rows are allowed.")
+            messagebox.showinfo("Limit Reached", "A maximum of 12 criteria rows are allowed.")
 
     def delete_criteria(self):
         if len(self.criteria_data) > 1:
