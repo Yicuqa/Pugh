@@ -4,9 +4,6 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from openpyxl import Workbook
 from fpdf import FPDF
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-
 
 class PDF(FPDF):
     def __init__(self, title=None):
@@ -53,23 +50,6 @@ class CycleCheckbutton(tk.Label):
         value_scores = {"+": 1, "-": -1, "S": 0, " ": 0}
         return value_scores[self.values[self.current_value]]
 
-class ToggleButton(tk.Frame):
-    def __init__(self, master, **kwargs):
-        super().__init__(master, **kwargs)
-        self.config(borderwidth=2, relief="raised")
-        self.value = tk.BooleanVar(self, False)
-        self.bind("<Button-1>", self.toggle)
-        self.draw_button()
-
-    def draw_button(self):
-        self.label = tk.Label(self, text='Off', bg='red', width=8)
-        self.label.pack(pady=2, padx=2)
-
-    def toggle(self, event):
-        self.value.set(not self.value.get())
-        self.label.config(text='On' if self.value.get() else 'Off', bg='green' if self.value.get() else 'red')
-
-
 class MyApp:
     def __init__(self, root):
         self.root = root
@@ -78,8 +58,12 @@ class MyApp:
         self.create_menu()
         self.create_content_frame()
 
+        # Set the window icon
+        root.iconbitmap(r'picture\pugh_matrix_Vz5_2.ico')
+
         # Create a style object
         style = ttk.Style(root)
+        
         # Set the theme
         style.theme_use('clam')  # 'alt', 'clam', 'classic', 'default', 'vista'
 
@@ -89,7 +73,6 @@ class MyApp:
         # Entry Widget Styling
         style.configure('TEntry', font=('Helvetica', 12), padding=5, relief='flat', background='white')
 
-
         # Configure Button Style
         style.configure('TButton', font=('Helvetica', 12), padding=1, relief='flat', background='#0066FF', foreground='white')
         style.map('TButton', 
@@ -97,15 +80,12 @@ class MyApp:
             background=[('pressed', '!disabled', 'black'), ('active', '#0057d9')],
             relief=[('pressed', 'sunken'), ('!pressed', 'flat')])
 
-        # Label styling
-        style.configure('TLabel', font=('Helvetica', 12), background='lightgray')
-
         # Entry styling with padding
         style.configure('TEntry', padding=5)
 
         self.solution_data = [
-            {'name': 'Solution 1', 'details': ''},
-            {'name': 'Solution 2', 'details': ''}
+            {'name': 'Baseline', 'details': 'If compared with existing: S, + or -'},
+            {'name': 'Solution 1', 'details': ''}
         ]
         
         self.criteria_data = [
@@ -119,17 +99,9 @@ class MyApp:
 
         self.show_input_solution_frame()
 
-    def toggle_theme(self):
-        current_theme = self.style.theme_use()
-        new_theme = 'alt' if current_theme == 'clam' else 'clam'
-        self.style.theme_use(new_theme)
-        messagebox.showinfo("Theme Toggled", f"Switched to {'Dark' if new_theme == 'alt' else 'Light'} Theme")
-
-
     def create_content_frame(self):
         self.content_frame = tk.Frame(self.root, background='#f0f0f0', pady=5, padx=5)
         self.content_frame.pack(fill='both', expand=True, padx=10, pady=10)
-
 
     def collect_export_state_data(self):
         data = []
@@ -296,21 +268,21 @@ class MyApp:
 
     def create_menu(self):
         menubar = tk.Menu(self.root, background='lightgrey', foreground='black', activebackground='#0057d9', activeforeground='white')
-        fileMenu = tk.Menu(menubar, tearoff=0, background='lightgrey', foreground='black')
+        fileMenu = tk.Menu(menubar, tearoff=0, background='#f0f0f0', foreground='black')
         fileMenu.add_command(label="Open New", command=self.prompt_save_before_reset)
         fileMenu.add_command(label="Export State", command=self.export_state)
         fileMenu.add_command(label="Import State", command=self.import_state)
         fileMenu.add_separator()
-        fileMenu.add_command(label="Help", command=lambda: messagebox.showinfo("Help", "Not supported yet!"))
-        fileMenu.add_separator()
         fileMenu.add_command(label="Close", command=self.root.quit)
         menubar.add_cascade(label="File", menu=fileMenu)
 
-        viewMenu = tk.Menu(menubar, tearoff=0, background='lightgrey', foreground='black')
-        viewMenu.add_command(label="Input Solution", command=self.show_input_solution_frame)
-        viewMenu.add_command(label="Input Criteria", command=self.show_input_criteria_frame)
-        viewMenu.add_command(label="View Calculation", command=self.show_input_calculation_frame)
+        viewMenu = tk.Menu(menubar, tearoff=0, background='#f0f0f0', foreground='black')
+        viewMenu.add_command(label="Solution", command=self.show_input_solution_frame)
+        viewMenu.add_command(label="Criteria", command=self.show_input_criteria_frame)
+        viewMenu.add_command(label="Calculation", command=self.show_input_calculation_frame)
         menubar.add_cascade(label="View", menu=viewMenu)
+
+        menubar.add_command(label="Instructions", command=self.show_instructions_frame)
         self.root.config(menu=menubar)
 
 
@@ -381,23 +353,6 @@ class MyApp:
         
         return scores
 
-    def display_results(self, scores):
-        figure = plt.Figure(figsize=(6, 5), dpi=100)
-        ax = figure.add_subplot(111)
-        data = [score for _, score in scores.items()]
-        labels = [name for name, _ in scores.items()]
-        ax.bar(labels, data, color='blue')
-        ax.set_title('Solution Scores')
-        canvas = FigureCanvasTkAgg(figure, self.root)
-        canvas_widget = canvas.get_tk_widget()
-        canvas_widget.pack()
-        canvas.draw()
-
-    def calculate_and_display(self):
-        scores = self.calculate_scores()
-        self.display_results(scores)
-
-
     def clear_content_frame(self, update_entries=True):
         # Clears the content frame, optionally updating entries to the data model before clearing
         if update_entries:
@@ -443,6 +398,88 @@ class MyApp:
                 details_entry = entry.master.children['details_entry']
                 self.solution_data[i]['details'] = details_entry.get()
 
+
+    def show_instructions_frame(self):
+        # Create a new Toplevel window to display instructions
+        result_window = tk.Toplevel(self.root)
+        result_window.title("Instructions")
+        result_window.geometry("620x400")
+
+        # Create a frame for the scrollbar and text widget
+        text_frame = ttk.Frame(result_window)
+        text_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        # Create a scrollbar
+        scrollbar = ttk.Scrollbar(text_frame)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # Create a text widget with left alignment
+        text_widget = tk.Text(text_frame, wrap=tk.WORD, yscrollcommand=scrollbar.set, font=('Helvetica', 10), padx=10, pady=10, borderwidth=2, relief="groove")
+        text_widget.pack(fill=tk.BOTH, expand=True)
+
+        # Configure scrollbar
+        scrollbar.config(command=text_widget.yview)
+
+        # Define tags for different styling
+        text_widget.tag_configure('title', justify='center', font=('Helvetica', 12, 'bold'), spacing3=0)
+        text_widget.tag_configure('no_indent', justify='left', lmargin1=0, rmargin=0, spacing1=0, spacing3=0)
+
+        # Title insertion
+        text_widget.insert(tk.END, 'Introduction to Pugh Matrix\n\n', 'title')
+
+        # Insert the help text before the instructions subtitle
+        pre_instructions_text = """
+        The Pugh Matrix is a powerful tool used to compare various options — be it components, situations, solutions, cars or even interview candidates — against a set of defined criteria. This method helps transition decision-making processes from subjective "gut feelings" to an objective, data-driven approach. By utilizing the Pugh Matrix, you can minimize unconscious bias and ensure that decisions are based on clearly defined and rated criteria.
+
+        Before we begin with the instructions:
+        In the menu under ‘File’, you can export and import the current state of filled in solutions, criteria and even the checkboxes in the calculation view. If you’re in a hurry and don’t have time to finish the form, simply export the state and import it at a later time.
+
+        You’re also able to export the result as either a PDF, CSV or XLSX file.
+        
+        
+        """
+
+        # Make sure to strip leading whitespace from strings
+        formatted_text = "\n".join(line.strip() for line in pre_instructions_text.split("\n"))
+        # Insert pre-instructions text with 'no_indent' tag
+        text_widget.insert(tk.END, formatted_text, 'no_indent')
+
+        # Insert the subtitle "Instructions"
+        text_widget.insert(tk.END, '\nInstructions\n', 'title')
+
+        # Insert the help text after the instructions subtitle
+        instructions_text = """
+        Step 1: Enter ‘Solution View’ and list possible solutions
+        Objective: Compile a comprehensive list of components or solutions you intend to compare.
+        Action: In the 'Solution View', add a brief name for each solution and include a detailed description to ensure all stakeholders have a clear understanding. This list will be automatically integrated into the ‘Calculation View’ for comparison.
+
+        Step 2: Enter ‘Criteria View’ and define and detail a list of criteria
+        Objective: Identify and document the criteria that are crucial for comparing the different solutions.
+        Action: Update the 'Criteria View' with essential criteria and provide a detailed description of each to align understanding among all involved parties. These criteria will be automatically transferred to the corresponding section in the ‘Calculation View’.
+
+        Step 3: Rate the Importance of each Criteria
+        Objective: Assess and assign a significance level to each criteria to reflect its importance in the decision-making process.
+        Action: Review the list of criteria in the ‘Criteria View’ and assign a rating from ‘Low’ to ‘High’, where ‘Low’ indicates lesser importance, ‘Medium’ indicates quite important, and ‘High’ signifies it's of critical importance.
+
+        Step 4: Establish a Baseline for Comparison
+        Objective: Set a baseline component for a straightforward comparison with other components.
+        Action: If a baseline exists, fill in the satisfaction level using 'S' for Satisfied, '+' for Better Than Satisfied, and '-' for Not Satisfied, according to the agreed criteria. If there is no Baseline, one of the solution can be used as one instead.
+
+        Step 5: Evaluate Each Component
+        Objective: Apply the same evaluation criteria to each component under consideration.
+        Action: Mark each component with 'S', '+', or '-', where 'S' stands for "Same as Baseline", '+' for "Better" and '-' for "Worse".
+
+        Step 6: Interpret the Results
+        Objective: Utilize the insights gained from the matrix to make informed decisions.
+        Action: Press the ‘Calculate’ button in the ‘Calculation View’ in order to see the results. The solution with the highest points will be presented at the top and the lowest will be at the bottom. The more points a solution receive, the better the indication that the solution is of a more superior outcome.
+        """
+        # Make sure to strip leading whitespace from strings
+        formatted_text2 = "\n".join(line.strip() for line in instructions_text.split("\n"))
+        # Insert instruction text with 'no_indent' tag
+        text_widget.insert(tk.END, formatted_text2, 'no_indent')
+        text_widget.config(state=tk.DISABLED)  # Disable editing of the text widget
+
+
     def show_input_solution_frame(self):
         # Builds the input area for solution entries dynamically based on current data
         self.clear_content_frame()
@@ -460,9 +497,21 @@ class MyApp:
             self.add_solution_row(solution_container, solution, index)
 
         action_frame = tk.Frame(self.content_frame)
-        action_frame.pack(fill='x', pady=10)
-        ttk.Button(action_frame, text="Add Solution", command=self.add_solution).pack(side='left', padx=10)
-        ttk.Button(action_frame, text="Delete Solution", command=self.delete_solution).pack(side='left')
+        action_frame.pack(fill=tk.X, pady=10)
+
+        # Create an inner frame to hold the buttons
+        button_frame = tk.Frame(action_frame)
+        button_frame.pack(pady=10, padx=10)
+
+        # Add buttons to the button frame
+        add_button = ttk.Button(button_frame, text="Add Solution", command=self.add_solution)
+        add_button.pack(side=tk.LEFT, padx=10)
+
+        delete_button = ttk.Button(button_frame, text="Delete Solution", command=self.delete_solution)
+        delete_button.pack(side=tk.LEFT)
+
+        # Center the button_frame within action_frame
+        button_frame.pack_configure(side=tk.TOP, expand=True)
 
         self.reset_grid_configuration()
 
@@ -513,9 +562,18 @@ class MyApp:
             self.add_criteria_row(criteria_container, criterion, index)
 
         action_frame = tk.Frame(self.content_frame)
-        action_frame.pack(fill='x', pady=10)
-        ttk.Button(action_frame, text="Add Criteria", command=self.add_criteria).pack(side='left', padx=10)
-        ttk.Button(action_frame, text="Delete Criteria", command=self.delete_criteria).pack(side='left')
+        action_frame.pack(fill=tk.X, pady=10)
+
+        # Create an inner frame to hold the buttons
+        button_frame = tk.Frame(action_frame)
+        button_frame.pack(pady=10, padx=10)
+
+        # Add buttons to the button frame
+        add_button = ttk.Button(button_frame, text="Add Criteria", command=self.add_criteria)
+        add_button.pack(side=tk.LEFT, padx=10)
+
+        delete_button = ttk.Button(button_frame, text="Delete Criteria", command=self.delete_criteria)
+        delete_button.pack(side=tk.LEFT)
 
         self.reset_grid_configuration()
 
@@ -627,9 +685,9 @@ class MyApp:
             result_label = tk.Label(result_window, text=f"{solution_name}: {score}", font=("Arial", 14))
             result_label.pack(pady=(20, 0) if i == 0 else (10, 0))
 
-        # Buttons frame
+        # Buttons frame at the bottom
         buttons_frame = tk.Frame(result_window)
-        buttons_frame.pack(pady=20)
+        buttons_frame.pack(side=tk.BOTTOM, pady=20)  # Now using side=tk.BOTTOM
 
         # Button for exporting to CSV
         export_button = ttk.Button(buttons_frame, text="Export Results", command=self.export_results)
