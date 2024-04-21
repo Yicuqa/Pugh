@@ -18,7 +18,7 @@ def resource_path(relative_path):
 
     return os.path.join(base_path, relative_path)
 
-Logo = resource_path("icon.ico")
+Logo = resource_path("pugh_icon.ico")
 
 
 class PDF(FPDF):
@@ -140,7 +140,7 @@ class MyApp:
 
     def import_state(self):
         filename = filedialog.askopenfilename(
-            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+            filetypes=[("JSON", "*.json"), ("All files", "*.*")],
             title="Import from"
         )
         if filename:
@@ -179,7 +179,7 @@ class MyApp:
 
         filename = filedialog.asksaveasfilename(
             defaultextension=".json",
-            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+            filetypes=[("JSON", "*.json"), ("All files", "*.*")],
             title="Export as"
         )
         if filename:
@@ -193,9 +193,9 @@ class MyApp:
 
         # Options for save file dialog to allow selecting file type
         file_types = [
-            ("Excel files", "*.xlsx"),
-            ("CSV files", "*.csv"),
-            ("PDF files", "*.pdf"),
+            ("Excel Workbook", "*.xlsx"),
+            ("CSV (Comma delimited)", "*.csv"),
+            ("PDF", "*.pdf"),
             ("All files", "*.*")
         ]
         filename = filedialog.asksaveasfilename(
