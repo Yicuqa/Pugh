@@ -13,11 +13,11 @@
     ],
     "solutions": [
         {
-            "name": "Solution 1",
-            "details": ""
+            "name": "Baseline",
+            "details": "If compared with existing: S, + or -"
         },
         {
-            "name": "Solution 2",
+            "name": "Solution 1",
             "details": ""
         }
     ]
