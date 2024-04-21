@@ -18,8 +18,7 @@ def resource_path(relative_path):
 
     return os.path.join(base_path, relative_path)
 
-Logo = resource_path("pugh_icon.ico")
-
+Logo = resource_path("src\\dist\\assets\\pugh_icon.ico")
 
 class PDF(FPDF):
     def __init__(self, title=None):
@@ -72,6 +71,9 @@ class MyApp:
         self.root.geometry("700x500")
         self.create_menu()
         self.create_content_frame()
+
+        Logo_path = resource_path("assets\\small_icon.ico")
+        root.iconbitmap(r"{}".format(Logo_path))  # Use raw string notation
 
         # Create a style object
         style = ttk.Style(root)
@@ -149,24 +151,18 @@ class MyApp:
             return  # User cancelled the dialog
 
     def import_state_from_json(self, filename):
-        try:
-            with open(filename, 'r') as file:
-                state = json.load(file)
-            
-            # Clear the frame without updating entries from UI to model
-            self.clear_content_frame(update_entries=False)
+        with open(filename, 'r') as file:
+            state = json.load(file)
+        
+        # Clear the frame without updating entries from UI to model
+        self.clear_content_frame(update_entries=False)
 
-            self.solution_data = state.get('solutions', [])
-            self.criteria_data = state.get('criteria', [])
+        self.solution_data = state.get('solutions', [])
+        self.criteria_data = state.get('criteria', [])
 
-            # Rebuild the UI components with the newly imported data
-            self.show_input_criteria_frame()
-            self.show_input_solution_frame()
-            
-            messagebox.showinfo("Import Success", "State imported successfully.")
-        except Exception as e:
-            messagebox.showerror("Import Failed", f"Failed to import data: {e}")
-
+        # Rebuild the UI components with the newly imported data
+        self.show_input_criteria_frame()
+        self.show_input_solution_frame()
 
     def refresh_views(self):
         # Refreshes the UI for solution and criteria entries
@@ -180,8 +176,12 @@ class MyApp:
         filename = filedialog.asksaveasfilename(
             defaultextension=".json",
             filetypes=[("JSON", "*.json"), ("All files", "*.*")],
-            title="Export as"
+            title="Export state"
         )
+
+        if not filename:
+            return  # User cancelled the dialog
+        
         if filename:
             self.export_state_to_json(filename)
         else:
@@ -201,7 +201,7 @@ class MyApp:
         filename = filedialog.asksaveasfilename(
             defaultextension=".xlsx",  # Default file extension
             filetypes=file_types,      # List of tuples specifying allowed file types
-            title="Save results as"
+            title="Export results"
         )
 
         if not filename:
@@ -310,21 +310,26 @@ class MyApp:
         # Clear existing data
         self.solution_data.clear()
         self.criteria_data.clear()
-        self.clear_content_frame()  # Clears the content frame
+        self.clear_content_frame(update_entries=False)  # Clears the content frame
+        
+        # Reset and reconfigure grid
+        self.reset_grid_configuration()
+        self.content_frame.update_idletasks()  # Process all pending geometry tasks
 
         # Populate with initial default data
         self.solution_data = [
             {'name': 'Baseline', 'details': 'If compared with existing: S, + or -'},
             {'name': 'Solution 1', 'details': ''}
         ]
-
         self.criteria_data = [
             {'name': 'Criteria 1', 'details': '', 'importance': 'Low'},
             {'name': 'Criteria 2', 'details': '', 'importance': 'Low'}
         ]
 
         # Re-initialize GUI components with default data
-        self.show_input_solution_frame()  # This method should re-render the solution input section
+        self.show_input_criteria_frame()
+        self.show_input_solution_frame()
+
 
     def perform_csv_export(self, scores):
         # Prepare data for export
@@ -380,20 +385,21 @@ class MyApp:
         self.reset_grid_configuration()  # Reset configuration after clearing widgets
         self.content_frame.update_idletasks()  # Force update
 
-
     def reset_grid_configuration(self):
-        # Clear any previous grid configuration thoroughly
-        current_rows, current_cols = self.content_frame.grid_size()
-        for i in range(current_rows):
+        # First, reset all possible grid configurations to default
+        max_rows = 15
+        max_cols = 15
+        for i in range(max_rows):
             self.content_frame.grid_rowconfigure(i, weight=0, minsize=0)
-        for j in range(current_cols):
+        for j in range(max_cols):
             self.content_frame.grid_columnconfigure(j, weight=0, minsize=0)
 
-        # Apply new configurations based on current data
+        # Now, configure only the necessary rows and columns
         for i in range(len(self.criteria_data) + 1):  # +1 for headers
             self.content_frame.grid_rowconfigure(i, weight=1)
         for j in range(len(self.solution_data) + 1):
             self.content_frame.grid_columnconfigure(j, weight=1)
+
 
     def update_data_from_entries(self):
         for i, entry in enumerate(self.criteria_entries):
@@ -413,12 +419,15 @@ class MyApp:
 
     def show_instructions_frame(self):
         # Create a new Toplevel window to display instructions
-        result_window = tk.Toplevel(self.root)
-        result_window.title("Instructions")
-        result_window.geometry("620x400")
+        instructions_window = tk.Toplevel(self.root)
+        instructions_window.title("Instructions")
+        instructions_window.geometry("620x400")
+
+        Logo_path = resource_path("assets\\small_icon.ico")
+        instructions_window.iconbitmap(r"{}".format(Logo_path))  # Use raw string notation
 
         # Create a frame for the scrollbar and text widget
-        text_frame = ttk.Frame(result_window)
+        text_frame = ttk.Frame(instructions_window)
         text_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
         # Create a scrollbar
@@ -441,7 +450,7 @@ class MyApp:
 
         # Insert the help text before the instructions subtitle
         pre_instructions_text = """
-        The Pugh Matrix is a powerful tool used to compare various options — be it components, situations, solutions, cars or even interview candidates — against a set of defined criteria. This method helps transition decision-making processes from subjective "gut feelings" to an objective, data-driven approach. By utilizing the Pugh Matrix, you can minimize unconscious bias and ensure that decisions are based on clearly defined and rated criteria.
+        The Pugh Matrix is an effective tool for comparing a range of options — whether it be components, situations, solutions, vehicles or even interview candidates — against established criteria. This method facilitates a shift in decision-making from subjective impressions to an objective, data-focused strategy. Utilizing the Pugh Matrix helps reduce unconscious bias, ensuring that decisions are grounded in explicitly defined and evaluated criteria.
 
         Before we begin with the instructions:
         In the menu under ‘File’, you can export and import the current state of filled in solutions, criteria and even the checkboxes in the calculation view. If you’re in a hurry and don’t have time to finish the form, simply export the state and import it at a later time.
@@ -540,20 +549,24 @@ class MyApp:
         self.solution_entries.append(entry)  # Keep track of the entry for later use
 
     def add_solution(self):
-        if len(self.solution_data) < 13:
+        if len(self.solution_data) < 12:
             self.solution_data.append({'name': '', 'details': ''})
             self.show_input_solution_frame()
             self.reset_grid_configuration()
         else:
-            messagebox.showinfo("Limit Reached", "A maximum of 13 solution rows are allowed.")
+            messagebox.showinfo("Limit Reached", "A maximum of 12 solution rows are allowed.")
 
     def delete_solution(self):
         if len(self.solution_data) > 1:
             self.solution_data.pop()
             self.show_input_solution_frame()
+            # Reset configuration for the now non-existent column
             self.reset_grid_configuration()
+            # Additional resetting specific column (if needed)
+            self.content_frame.grid_columnconfigure(len(self.solution_data)+1, minsize=0, weight=0)
         else:
             messagebox.showinfo("Minimum Requirement", "At least one solution must be present.")
+
 
     def show_input_criteria_frame(self):
         # Builds the input area for criteria entries dynamically based on current data
@@ -611,20 +624,24 @@ class MyApp:
         self.importance_comboboxes.append(importance_combobox)  # Keep track of the combobox for later use
 
     def add_criteria(self):
-        if len(self.criteria_data) < 12:
+        if len(self.criteria_data) < 11:
             self.criteria_data.append({'name': '', 'importance': 'Low'})
             self.show_input_criteria_frame()
             self.reset_grid_configuration()
         else:
-            messagebox.showinfo("Limit Reached", "A maximum of 12 criteria rows are allowed.")
+            messagebox.showinfo("Limit Reached", "A maximum of 11 criteria rows are allowed.")
 
     def delete_criteria(self):
         if len(self.criteria_data) > 1:
             self.criteria_data.pop()
             self.show_input_criteria_frame()
+            # Reset configuration for the now non-existent row
             self.reset_grid_configuration()
+            # Additional resetting specific row (if needed)
+            self.content_frame.grid_rowconfigure(len(self.criteria_data)+1, minsize=0, weight=0)
         else:
             messagebox.showinfo("Minimum Requirement", "At least one criteria must be present.")
+
 
     def show_input_calculation_frame(self):
         self.clear_content_frame()  # Clear previous widgets
@@ -688,6 +705,9 @@ class MyApp:
         result_window = tk.Toplevel(self.root)
         result_window.title("Results")
         result_window.geometry("400x400")
+        
+        Logo_path = resource_path("assets\\small_icon.ico")
+        result_window.iconbitmap(r"{}".format(Logo_path))  # Use raw string notation
         
         # Sort solutions by score descending, and by name alphabetically if scores are the same
         sorted_solutions = sorted(scores.items(), key=lambda item: (-item[1], item[0]))
