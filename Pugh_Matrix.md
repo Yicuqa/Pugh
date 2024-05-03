@@ -151,24 +151,18 @@ class MyApp:
             return  # User cancelled the dialog
 
     def import_state_from_json(self, filename):
-        try:
-            with open(filename, 'r') as file:
-                state = json.load(file)
-            
-            # Clear the frame without updating entries from UI to model
-            self.clear_content_frame(update_entries=False)
+        with open(filename, 'r') as file:
+            state = json.load(file)
+        
+        # Clear the frame without updating entries from UI to model
+        self.clear_content_frame(update_entries=False)
 
-            self.solution_data = state.get('solutions', [])
-            self.criteria_data = state.get('criteria', [])
+        self.solution_data = state.get('solutions', [])
+        self.criteria_data = state.get('criteria', [])
 
-            # Rebuild the UI components with the newly imported data
-            self.show_input_criteria_frame()
-            self.show_input_solution_frame()
-            
-            messagebox.showinfo("Import Success", "State imported successfully.")
-        except Exception as e:
-            messagebox.showerror("Import Failed", f"Failed to import data: {e}")
-
+        # Rebuild the UI components with the newly imported data
+        self.show_input_criteria_frame()
+        self.show_input_solution_frame()
 
     def refresh_views(self):
         # Refreshes the UI for solution and criteria entries
@@ -691,45 +685,64 @@ class MyApp:
     def calculate(self):
         scores = {}
         importance_scores = {"Low": 1, "Medium": 2, "High": 3}
-        
+
         # Initialize scores dictionary with solution names
         for solution in self.solution_data:
             scores[solution['name']] = 0
-        
+
         for i, criterion in enumerate(self.criteria_data):
             importance = criterion['importance']
             importance_score = importance_scores[importance]
-            
+
             for j, solution in enumerate(self.solution_data):
                 checkbox = self.content_frame.grid_slaves(row=i + 1, column=j + 1)[0]
                 if isinstance(checkbox, CycleCheckbutton):
                     # Multiply the checkbox score by the importance score and add to the solution's total
-                    added_score = int(checkbox.get_score()) if isinstance(checkbox.get_score(), str) else checkbox.get_score()
-                    scores[solution['name']] += added_score * importance_score
+                    scores[solution['name']] += checkbox.get_score() * importance_score
 
-        # Create a new Toplevel window to display results
+        # Create a new Toplevel window to display results, ensure this part is not inside a loop
         result_window = tk.Toplevel(self.root)
         result_window.title("Results")
-        result_window.geometry("400x400")
-        
-        Logo_path = resource_path("assets\\small_icon.ico")
-        result_window.iconbitmap(r"{}".format(Logo_path))  # Use raw string notation
-        
+        result_window.geometry("400x600")  # Adjusted for potentially more content visibility
+
+        # Use grid layout for canvas and buttons
+        result_window.grid_columnconfigure(0, weight=1)  # Make column expandable
+
+        # Setup a scrollable canvas
+        canvas = tk.Canvas(result_window)
+        canvas.grid(row=0, column=0, sticky='ewns')
+        scrollbar = ttk.Scrollbar(result_window, orient="vertical", command=canvas.yview)
+        scrollbar.grid(row=0, column=1, sticky='ns')
+        scrollable_frame = ttk.Frame(canvas)
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(
+                scrollregion=canvas.bbox("all")
+            )
+        )
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
         # Sort solutions by score descending, and by name alphabetically if scores are the same
         sorted_solutions = sorted(scores.items(), key=lambda item: (-item[1], item[0]))
-        
+
         # Display each solution and its score
         for i, (solution_name, score) in enumerate(sorted_solutions):
-            result_label = tk.Label(result_window, text=f"{solution_name}: {score}", font=("Arial", 14))
+            result_label = tk.Label(scrollable_frame, text=f"{solution_name}: {score}", font=("Arial", 14))
             result_label.pack(pady=(20, 0) if i == 0 else (10, 0))
 
         # Buttons frame at the bottom
         buttons_frame = tk.Frame(result_window)
-        buttons_frame.pack(side=tk.BOTTOM, pady=20)  # Now using side=tk.BOTTOM
+        buttons_frame.grid(row=1, column=0, sticky='ew', columnspan=2, pady=20)
+        result_window.grid_rowconfigure(1, weight=0)  # Make sure this row doesn't expand
 
-        # Button for exporting to CSV
+        # Ensure the button is centered in the frame
+        buttons_frame.grid_columnconfigure(0, weight=1)
         export_button = ttk.Button(buttons_frame, text="Export Results", command=self.export_results)
-        export_button.pack(side='left', padx=10)
+        export_button.grid(row=0, column=0, sticky='ew')  # Expand button to fill the cell
+
+        result_window.grid_rowconfigure(0, weight=1)  # Make canvas row expandable
 
 if __name__ == "__main__":
     root = tk.Tk()
